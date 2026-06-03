@@ -1,5 +1,5 @@
 import { IMAGE_TYPES, STATUS, PRIORITIES, TRASLADOS, MODALIDADES_PORTATIL } from './constants';
-import type { Pedido, Paciente, Internacion, Usuario } from '../types';
+import type { Pedido, Paciente, Internacion } from '../types';
 
 export const typeMeta = (id: string) => IMAGE_TYPES.find((t) => t.id === id);
 export const requiereAuth = (modalidad: string) => Boolean(typeMeta(modalidad)?.requiereAutorizacion);

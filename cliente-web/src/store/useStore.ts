@@ -20,7 +20,7 @@ interface AppState {
   createInternacion: (internacion: Omit<Internacion, 'id'> | Internacion) => Promise<void>;
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>((set) => ({
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
   
