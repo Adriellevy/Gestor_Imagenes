@@ -10,6 +10,7 @@ interface AppState {
   pacientes: Paciente[];
   internaciones: Internacion[];
   pedidos: Pedido[];
+  padron: any[];
   
   loading: boolean;
   
@@ -18,6 +19,7 @@ interface AppState {
   updatePedido: (id: string, updates: Partial<Pedido>) => Promise<void>;
   createPaciente: (paciente: Omit<Paciente, 'id'> | Paciente) => Promise<void>;
   createInternacion: (internacion: Omit<Internacion, 'id'> | Internacion) => Promise<void>;
+  resetData: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -28,19 +30,21 @@ export const useStore = create<AppState>((set) => ({
   pacientes: [],
   internaciones: [],
   pedidos: [],
+  padron: [],
   
   loading: true,
   
   fetchData: async () => {
     set({ loading: true });
     try {
-      const [usuarios, pacientes, internaciones, pedidos] = await Promise.all([
+      const [usuarios, pacientes, internaciones, pedidos, padron] = await Promise.all([
         api.getUsuarios(),
         api.getPacientes(),
         api.getInternaciones(),
-        api.getPedidos()
+        api.getPedidos(),
+        api.getPadron()
       ]);
-      set({ usuarios, pacientes, internaciones, pedidos, loading: false });
+      set({ usuarios, pacientes, internaciones, pedidos, padron, loading: false });
     } catch (error) {
       console.error('Error fetching data:', error);
       set({ loading: false });
@@ -82,6 +86,22 @@ export const useStore = create<AppState>((set) => ({
       set((state) => ({ internaciones: [...state.internaciones, newInternacion] }));
     } catch (error) {
       console.error('Error creating internacion:', error);
+    }
+  },
+  
+  resetData: async () => {
+    try {
+      await api.resetData();
+      const [usuarios, pacientes, internaciones, pedidos, padron] = await Promise.all([
+        api.getUsuarios(),
+        api.getPacientes(),
+        api.getInternaciones(),
+        api.getPedidos(),
+        api.getPadron()
+      ]);
+      set({ usuarios, pacientes, internaciones, pedidos, padron });
+    } catch (error) {
+      console.error('Error resetting data:', error);
     }
   }
 }));

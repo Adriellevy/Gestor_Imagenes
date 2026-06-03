@@ -4,6 +4,7 @@ import { InternacionesService } from './internaciones.service';
 
 @Module({
   controllers: [InternacionesController],
-  providers: [InternacionesService]
+  providers: [InternacionesService],
+  exports: [InternacionesService]
 })
 export class InternacionesModule {}

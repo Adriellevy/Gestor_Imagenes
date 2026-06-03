@@ -4,12 +4,18 @@ import { Internacion } from '../data/types';
 
 @Injectable()
 export class InternacionesService {
+  private internaciones: Internacion[] = [...INTERNACIONES];
+
   findAll(): Internacion[] {
-    return INTERNACIONES;
+    return this.internaciones;
   }
 
   create(internacion: Internacion): Internacion {
-    INTERNACIONES.push(internacion);
+    this.internaciones.push(internacion);
     return internacion;
+  }
+
+  reset(): void {
+    this.internaciones = [...INTERNACIONES];
   }
 }

@@ -6,6 +6,11 @@ import type { Paciente } from '../data/types';
 export class PacientesController {
   constructor(private readonly pacientesService: PacientesService) {}
 
+  @Get('padron')
+  getPadron() {
+    return this.pacientesService.getPadron();
+  }
+
   @Get()
   findAll() {
     return this.pacientesService.findAll();

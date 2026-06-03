@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { useStore } from "./store/useStore";
 import {
   Activity, Plus, Search, Clock, AlertTriangle, CheckCircle2, Play, X,
   ChevronDown, RotateCcw, Stethoscope, Bone, Brain, Waves, Scan,
@@ -699,8 +698,10 @@ function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy }) {
 }
 
 export default function App() {
-  /* Estado normalizado (Zustand + Backend) */
-  const { pacientes, internaciones, pedidos, loading, fetchData, createPedido, updatePedido, createPaciente, createInternacion } = useStore();
+  /* Estado normalizado */
+  const [pacientes, setPacientes] = useState(PACIENTES);
+  const [internaciones, setInternaciones] = useState(INTERNACIONES);
+  const [pedidos, setPedidos] = useState(() => PEDIDOS_SEED.map((p) => ({ ...p, historial: historialSeed(p) })));
 
   /* Usuario actual (sin login real: se personifica desde el selector del header) */
   const [currentUserId, setCurrentUserId] = useState("u6");
@@ -729,10 +730,31 @@ export default function App() {
     return () => { clearInterval(tick); document.head.removeChild(link); };
   }, []);
 
-  // Cargar estado desde el backend
+  // Cargar estado persistido (o sembrar los datos de ejemplo la primera vez).
   useEffect(() => {
-    fetchData().then(() => setCargado(true));
-  }, [fetchData]);
+    let vivo = true;
+    (async () => {
+      if (STORE) {
+        try {
+          const r = await STORE.get(STORE_KEY, true);
+          const d = r && r.value ? JSON.parse(r.value) : null;
+          if (vivo && d) {
+            if (d.pacientes) setPacientes(d.pacientes);
+            if (d.internaciones) setInternaciones(d.internaciones);
+            if (d.pedidos) setPedidos(d.pedidos);
+          }
+        } catch (e) { /* primera vez / sin datos: quedan los seeds */ }
+      }
+      if (vivo) setCargado(true);
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  // Guardar ante cualquier cambio del modelo (una vez cargado).
+  useEffect(() => {
+    if (!cargado || !STORE) return;
+    STORE.set(STORE_KEY, JSON.stringify({ pacientes, internaciones, pedidos }), true).catch(() => {});
+  }, [pacientes, internaciones, pedidos, cargado]);
 
   /* Al cambiar de usuario: si la vista actual no está permitida, saltar a la primera permitida.
      El médico queda fijado a la lista de su servicio. */
@@ -758,38 +780,25 @@ export default function App() {
   // Registra cada cambio de estado en el historial del pedido (quién + cuándo).
   const conEvento = (p, estado) => ({ ...p, estado, historial: [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] });
   const FORWARD = { solicitado: "en_proceso", traslado_solicitado: "en_proceso", en_proceso: "realizado" };
-  
-  const advance = (id) => {
-    const p = pedidos.find(x => x.id === id);
-    if (!p) return;
+  const advance = (id) => setPedidos((ps) => ps.map((p) => {
+    if (p.id !== id) return p;
     const next = FORWARD[p.estado];
-    if (next) updatePedido(id, conEvento(p, next));
-  };
-  
-  const solicitarTraslado = (id) => {
-    const p = pedidos.find(x => x.id === id);
-    if (p && p.estado === "solicitado") updatePedido(id, conEvento(p, "traslado_solicitado"));
-  };
-  
-  const authorize = (id) => {
-    const p = pedidos.find(x => x.id === id);
-    if (p && p.estado === "autorizacion_pendiente") updatePedido(id, conEvento(p, "solicitado"));
-  };
-  
-  const revert = (id) => {
-    const p = pedidos.find(x => x.id === id);
-    if (!p) return;
+    return next ? conEvento(p, next) : p;
+  }));
+  // Imágenes solicita el traslado del paciente al ayudante (→ "traslado solicitado").
+  const solicitarTraslado = (id) => setPedidos((ps) => ps.map((p) => p.id === id && p.estado === "solicitado" ? conEvento(p, "traslado_solicitado") : p));
+  // Autorización administrativa: deja pasar el estudio a la cola operativa.
+  // (Placeholder del rol administrativo; el circuito real se define luego.)
+  const authorize = (id) => setPedidos((ps) => ps.map((p) => p.id === id && p.estado === "autorizacion_pendiente" ? conEvento(p, "solicitado") : p));
+  const revert = (id) => setPedidos((ps) => ps.map((p) => {
+    if (p.id !== id) return p;
     const needsT = TRASLADOS[p.tipoTraslado]?.requiereTraslado;
     const back = { traslado_solicitado: "solicitado", en_proceso: needsT ? "traslado_solicitado" : "solicitado", realizado: "en_proceso" };
-    if (back[p.estado]) updatePedido(id, conEvento(p, back[p.estado]));
-  };
-  
-  const cancel = (id) => {
-    const p = pedidos.find(x => x.id === id);
-    if (p) updatePedido(id, { ...conEvento(p, "cancelado"), avisoPendiente: null });
-  };
+    return back[p.estado] ? conEvento(p, back[p.estado]) : p;
+  }));
+  const cancel = (id) => setPedidos((ps) => ps.map((p) => p.id === id ? { ...conEvento(p, "cancelado"), avisoPendiente: null } : p));
 
-  const addStudy = async ({ paciente: pac, modalidad, descripcion, prioridad, motivo, tipoTraslado, conContraste }) => {
+  const addStudy = ({ paciente: pac, modalidad, descripcion, prioridad, motivo, tipoTraslado, conContraste }) => {
     let pid, iid;
     const existente = pacientes.find((p) => p.hc && p.hc === pac.hc); // mismo paciente → no se duplica
     if (existente) {
@@ -799,46 +808,49 @@ export default function App() {
         iid = intern.id;
       } else {
         iid = uid("i_");
-        await createInternacion({ id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" });
+        setInternaciones((xs) => [...xs, { id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" }]);
       }
     } else {
       pid = uid("p_"); iid = uid("i_");
-      await createPaciente({ id: pid, hc: pac.hc, documento: { tipo: "DNI", numero: pac.dni }, apellido: pac.apellido, nombre: pac.nombre, fechaNacimiento: pac.fechaNacimiento, sexo: pac.sexo });
-      await createInternacion({ id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" });
+      setPacientes((xs) => [...xs, { id: pid, hc: pac.hc, documento: { tipo: "DNI", numero: pac.dni }, apellido: pac.apellido, nombre: pac.nombre, fechaNacimiento: pac.fechaNacimiento, sexo: pac.sexo }]);
+      setInternaciones((xs) => [...xs, { id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" }]);
     }
     const estadoIni = (requiereAuth(modalidad) && prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
     const ahora = Date.now();
-    await createPedido({
-      internacionId: iid, servicioSolicitanteId: pac.servicio, creadoPor: currentUserId,
+    setPedidos((xs) => [{
+      id: uid("ped_"), internacionId: iid, servicioSolicitanteId: pac.servicio, creadoPor: currentUserId,
       modalidad, descripcion: descripcion.trim(), conContraste, prioridad,
       motivo: motivo.trim(), tipoTraslado,
       estado: estadoIni, fechaSolicitud: ahora,
       historial: [{ estado: estadoIni, ts: ahora, por: currentUserId }],
-    });
+    }, ...xs]);
     setModal(false);
   };
 
   const abrirEdicion = (study) => { setEditStudy(study); setModal(true); };
   const cerrarModal = () => { setModal(false); setEditStudy(null); };
-  
   const updateStudy = (id, d) => {
-    const p = pedidos.find(x => x.id === id);
-    if (!p) return;
-    let estado = p.estado, avisoPendiente = p.avisoPendiente ?? null;
-    if (estado === "autorizacion_pendiente" || estado === "solicitado")
-      estado = (requiereAuth(d.modalidad) && d.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
-    // Edición sobre un traslado ya solicitado: avisar al ayudante según el cambio.
-    if (p.estado === "traslado_solicitado" && p.tipoTraslado !== d.tipoTraslado) {
-      if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
-      else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
-    }
-    const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] : p.historial;
-    updatePedido(id, { modalidad: d.modalidad, descripcion: d.descripcion.trim(), prioridad: d.prioridad, motivo: d.motivo.trim(), tipoTraslado: d.tipoTraslado, conContraste: d.conContraste, estado, avisoPendiente, historial: hist });
+    setPedidos((ps) => ps.map((p) => {
+      if (p.id !== id) return p;
+      let estado = p.estado, avisoPendiente = p.avisoPendiente ?? null;
+      if (estado === "autorizacion_pendiente" || estado === "solicitado")
+        estado = (requiereAuth(d.modalidad) && d.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
+      // Edición sobre un traslado ya solicitado: avisar al ayudante según el cambio.
+      if (p.estado === "traslado_solicitado" && p.tipoTraslado !== d.tipoTraslado) {
+        if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
+        else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
+      }
+      const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] : p.historial;
+      return { ...p, modalidad: d.modalidad, descripcion: d.descripcion.trim(), prioridad: d.prioridad, motivo: d.motivo.trim(), tipoTraslado: d.tipoTraslado, conContraste: d.conContraste, estado, avisoPendiente, historial: hist };
+    }));
     setModal(false); setEditStudy(null);
   };
-  const avisado = (id) => updatePedido(id, { avisoPendiente: null });
+  const avisado = (id) => setPedidos((ps) => ps.map((p) => p.id === id ? { ...p, avisoPendiente: null } : p));
   const reiniciar = async () => {
-    // Reset en backend no implementado, ignorar
+    if (STORE) { try { await STORE.delete(STORE_KEY, true); } catch (e) {} }
+    setPacientes(PACIENTES);
+    setInternaciones(INTERNACIONES);
+    setPedidos(PEDIDOS_SEED.map((p) => ({ ...p, historial: historialSeed(p) })));
   };
 
   const isClosed = (s) => s.estado === "realizado";

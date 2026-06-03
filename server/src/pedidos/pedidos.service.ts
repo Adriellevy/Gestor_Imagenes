@@ -27,4 +27,8 @@ export class PedidosService {
     }
     return null;
   }
+
+  reset(): void {
+    this.pedidos = [...PEDIDOS_SEED];
+  }
 }

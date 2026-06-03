@@ -13,6 +13,24 @@ export const USUARIOS: Usuario[] = [
   { id: 'u6', nombre: 'Sistemas', rol: 'admin' },
 ];
 
+export const PADRON_HOSPITAL = [
+  { hc: "1042318", apellido: "González",  nombre: "Marta",        dni: "28.945.110", fechaNacimiento: today(1958, 4, 12),  sexo: "F", servicio: "UCO",                         sector: "UCO",                         cama: "UCO 2" },
+  { hc: "1038945", apellido: "Pereyra",   nombre: "Jorge",        dni: "20.114.876", fechaNacimiento: today(1953, 9, 3),   sexo: "M", servicio: "UTI 1 (5to piso)",            sector: "UTI 1 (5to piso)",            cama: "UTI1 3" },
+  { hc: "1095102", apellido: "Fernández", nombre: "Lucía",        dni: "41.302.559", fechaNacimiento: today(2017, 6, 21),  sexo: "F", servicio: "Clínica médica (9no piso B)", sector: "Clínica médica (9no piso B)", cama: "Cama 905" },
+  { hc: "1051877", apellido: "Sosa",      nombre: "Roberto",      dni: "16.778.234", fechaNacimiento: today(1967, 1, 30),  sexo: "M", servicio: "Telemetría",                  sector: "Telemetría",                  cama: "Tele 4" },
+  { hc: "1063340", apellido: "Díaz",      nombre: "Ana Beatriz",  dni: "33.567.901", fechaNacimiento: today(1980, 11, 8),  sexo: "F", servicio: "Clínica médica (8vo piso A)", sector: "Clínica médica (8vo piso A)", cama: "Cama 818" },
+  { hc: "1009921", apellido: "Ramírez",   nombre: "Héctor",       dni: "12.090.443", fechaNacimiento: today(1945, 3, 17),  sexo: "M", servicio: "Clínica médica (7mo piso A)", sector: "Clínica médica (7mo piso A)", cama: "Cama 707" },
+  { hc: "1087654", apellido: "Castro",    nombre: "Sofía",        dni: "39.811.276", fechaNacimiento: today(1991, 7, 2),   sexo: "F", servicio: "Recuperación cardiovascular", sector: "Recuperación cardiovascular", cama: "RCV 1" },
+  { hc: "1029013", apellido: "Ibáñez",    nombre: "Daniel",       dni: "25.443.668", fechaNacimiento: today(1964, 12, 19), sexo: "M", servicio: "UTI 2 (6to piso)",            sector: "UTI 2 (6to piso)",            cama: "UTI2 2" },
+  { hc: "1071266", apellido: "Núñez",     nombre: "Valeria",      dni: "30.225.187", fechaNacimiento: today(1996, 5, 27),  sexo: "F", servicio: "Guardia",                     sector: "Guardia",                     cama: "Guardia 2" },
+  { hc: "1014488", apellido: "Paz",       nombre: "Miguel Ángel", dni: "14.556.029", fechaNacimiento: today(1949, 8, 14),  sexo: "M", servicio: "Clínica médica (8vo piso B)", sector: "Clínica médica (8vo piso B)", cama: "Cama 809" },
+  { hc: "1080557", apellido: "Medina",    nombre: "Carla",        dni: "37.901.554", fechaNacimiento: today(1973, 2, 9),   sexo: "F", servicio: "Telemetría",                  sector: "Telemetría",                  cama: "Tele 2" },
+  { hc: "1099001", apellido: "Ortega",    nombre: "Raúl",         dni: "18.220.115", fechaNacimiento: today(1959, 10, 5),  sexo: "M", servicio: "Quirófano 1 (3er piso)",      sector: "Quirófano 1 (3er piso)",      cama: "Q1 pre" },
+  { hc: "1099002", apellido: "Vega",      nombre: "Mariana",      dni: "27.640.882", fechaNacimiento: today(1979, 3, 22),  sexo: "F", servicio: "Quirófano 2 (4to piso)",      sector: "Quirófano 2 (4to piso)",      cama: "Q2 pre" },
+  { hc: "1099003", apellido: "Luna",      nombre: "Tomás",        dni: "44.115.309", fechaNacimiento: today(2019, 12, 1),  sexo: "M", servicio: "Clínica médica - TMO (9no piso A)", sector: "Clínica médica - TMO (9no piso A)", cama: "Cama 901" },
+  { hc: "1099004", apellido: "Suárez",    nombre: "Elena",        dni: "11.330.774", fechaNacimiento: today(1942, 6, 18),  sexo: "F", servicio: "UCO",                         sector: "UCO",                         cama: "UCO 1" },
+];
+
 export const PACIENTES: Paciente[] = [
   { id: 'p1', hc: '1042318', documento: { tipo: 'DNI', numero: '28.945.110' }, apellido: 'González', nombre: 'Marta', fechaNacimiento: today(1958, 4, 12), sexo: 'F' },
   { id: 'p2', hc: '1038945', documento: { tipo: 'DNI', numero: '20.114.876' }, apellido: 'Pereyra', nombre: 'Jorge', fechaNacimiento: today(1953, 9, 3), sexo: 'M' },
@@ -41,7 +59,40 @@ export const INTERNACIONES: Internacion[] = [
   { id: 'i11', pacienteId: 'p11', servicioId: 'Telemetría', ubicacion: { sector: 'Telemetría', habitacion: '—', cama: 'Tele 2' }, fechaIngreso: minsAgo(1080), fechaAlta: null, estado: 'activa' },
 ];
 
-export const PEDIDOS_SEED: Pedido[] = [
+const REQUIERE_AUTH: Record<string, boolean> = {
+  tc: true,
+  rm: true,
+  mn: true,
+  rx: false,
+  eco: false,
+  ecocardio: false,
+};
+
+const TRASLADOS_REQUIERE: Record<string, boolean> = {
+  silla: true,
+  camilla: true,
+  asistido: true,
+  habitacion: false,
+  ambulatorio: false,
+};
+
+function historialSeed(p: Partial<Pedido>) {
+  const requiereT = p.tipoTraslado && TRASLADOS_REQUIERE[p.tipoTraslado];
+  const arrancaAuth = p.modalidad && REQUIERE_AUTH[p.modalidad] && p.prioridad !== "urgente";
+  const SEC_ESTADO = ["autorizacion_pendiente", "solicitado", "traslado_solicitado", "en_proceso", "realizado"];
+  let camino;
+  if (p.estado === "cancelado") {
+    camino = [arrancaAuth ? "autorizacion_pendiente" : "solicitado", "cancelado"];
+  } else {
+    camino = SEC_ESTADO.filter((e) => (e !== "autorizacion_pendiente" || arrancaAuth) && (e !== "traslado_solicitado" || requiereT));
+    const corte = camino.indexOf(p.estado || '');
+    camino = corte >= 0 ? camino.slice(0, corte + 1) : [p.estado];
+  }
+  const actor: Record<string, string | null> = { autorizacion_pendiente: p.creadoPor ?? null, solicitado: arrancaAuth ? "u5" : (p.creadoPor ?? null), traslado_solicitado: "u3", en_proceso: "u3", realizado: "u3", cancelado: p.creadoPor ?? null };
+  return camino.map((e, i) => ({ estado: e, ts: (p.fechaSolicitud || 0) + i * 5 * 60000, por: actor[e as string] ?? null }));
+}
+
+const RAW_PEDIDOS_SEED: Omit<Pedido, 'historial'>[] = [
   { id: uid('ped_'), internacionId: 'i1', servicioSolicitanteId: 'UCO', creadoPor: 'u2', modalidad: 'tc', descripcion: 'Angiotomografía de encéfalo (vasos intra y extracraneanos)', tipoTraslado: 'camilla', regionAnatomica: 'Encéfalo', conContraste: true, prioridad: 'urgente', estado: 'solicitado', motivo: 'ACV', fechaSolicitud: minsAgo(54) },
   { id: uid('ped_'), internacionId: 'i2', servicioSolicitanteId: 'UTI 1 (5to piso)', modalidad: 'rx', descripcion: 'Rx de tórax portátil', tipoTraslado: 'habitacion', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'urgente', estado: 'en_proceso', motivo: 'Control de vía central.', fechaSolicitud: minsAgo(38) },
   { id: uid('ped_'), internacionId: 'i3', servicioSolicitanteId: 'Clínica médica (9no piso B)', modalidad: 'rx', descripcion: 'Rx de muñeca derecha (F y P)', tipoTraslado: 'silla', regionAnatomica: 'Muñeca', lateralidad: 'derecha', conContraste: false, prioridad: 'prioritario', estado: 'solicitado', motivo: 'Traumatismo, sospecha de fractura.', fechaSolicitud: minsAgo(22) },
@@ -55,3 +106,8 @@ export const PEDIDOS_SEED: Pedido[] = [
   { id: uid('ped_'), internacionId: 'i11', servicioSolicitanteId: 'Telemetría', modalidad: 'rx', descripcion: 'Rx de tórax (F y P)', tipoTraslado: 'silla', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'normal', estado: 'solicitado', motivo: 'Evaluación prequirúrgica.', fechaSolicitud: minsAgo(33) },
   { id: uid('ped_'), internacionId: 'i6', servicioSolicitanteId: 'Clínica médica (7mo piso A)', creadoPor: 'u1', modalidad: 'mn', descripcion: 'Centellograma óseo corporal total', tipoTraslado: 'camilla', regionAnatomica: 'Cuerpo entero', conContraste: false, prioridad: 'normal', estado: 'autorizacion_pendiente', motivo: 'Búsqueda de secundarismo óseo.', fechaSolicitud: minsAgo(120) },
 ];
+
+export const PEDIDOS_SEED: Pedido[] = RAW_PEDIDOS_SEED.map((p) => ({
+  ...p,
+  historial: historialSeed(p) as any,
+}));
