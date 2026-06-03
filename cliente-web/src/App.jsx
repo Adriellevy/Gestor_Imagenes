@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useStore } from "./store/useStore";
 import {
   Activity, Plus, Search, Clock, AlertTriangle, CheckCircle2, Play, X,
   ChevronDown, RotateCcw, Stethoscope, Bone, Brain, Waves, Scan,
@@ -698,10 +699,8 @@ function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy }) {
 }
 
 export default function App() {
-  /* Estado normalizado */
-  const [pacientes, setPacientes] = useState(PACIENTES);
-  const [internaciones, setInternaciones] = useState(INTERNACIONES);
-  const [pedidos, setPedidos] = useState(() => PEDIDOS_SEED.map((p) => ({ ...p, historial: historialSeed(p) })));
+  /* Estado normalizado (Zustand + Backend) */
+  const { pacientes, internaciones, pedidos, loading, fetchData, createPedido, updatePedido, createPaciente, createInternacion } = useStore();
 
   /* Usuario actual (sin login real: se personifica desde el selector del header) */
   const [currentUserId, setCurrentUserId] = useState("u6");
@@ -730,31 +729,10 @@ export default function App() {
     return () => { clearInterval(tick); document.head.removeChild(link); };
   }, []);
 
-  // Cargar estado persistido (o sembrar los datos de ejemplo la primera vez).
+  // Cargar estado desde el backend
   useEffect(() => {
-    let vivo = true;
-    (async () => {
-      if (STORE) {
-        try {
-          const r = await STORE.get(STORE_KEY, true);
-          const d = r && r.value ? JSON.parse(r.value) : null;
-          if (vivo && d) {
-            if (d.pacientes) setPacientes(d.pacientes);
-            if (d.internaciones) setInternaciones(d.internaciones);
-            if (d.pedidos) setPedidos(d.pedidos);
-          }
-        } catch (e) { /* primera vez / sin datos: quedan los seeds */ }
-      }
-      if (vivo) setCargado(true);
-    })();
-    return () => { vivo = false; };
-  }, []);
-
-  // Guardar ante cualquier cambio del modelo (una vez cargado).
-  useEffect(() => {
-    if (!cargado || !STORE) return;
-    STORE.set(STORE_KEY, JSON.stringify({ pacientes, internaciones, pedidos }), true).catch(() => {});
-  }, [pacientes, internaciones, pedidos, cargado]);
+    fetchData().then(() => setCargado(true));
+  }, [fetchData]);
 
   /* Al cambiar de usuario: si la vista actual no está permitida, saltar a la primera permitida.
      El médico queda fijado a la lista de su servicio. */
@@ -780,25 +758,38 @@ export default function App() {
   // Registra cada cambio de estado en el historial del pedido (quién + cuándo).
   const conEvento = (p, estado) => ({ ...p, estado, historial: [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] });
   const FORWARD = { solicitado: "en_proceso", traslado_solicitado: "en_proceso", en_proceso: "realizado" };
-  const advance = (id) => setPedidos((ps) => ps.map((p) => {
-    if (p.id !== id) return p;
+  
+  const advance = (id) => {
+    const p = pedidos.find(x => x.id === id);
+    if (!p) return;
     const next = FORWARD[p.estado];
-    return next ? conEvento(p, next) : p;
-  }));
-  // Imágenes solicita el traslado del paciente al ayudante (→ "traslado solicitado").
-  const solicitarTraslado = (id) => setPedidos((ps) => ps.map((p) => p.id === id && p.estado === "solicitado" ? conEvento(p, "traslado_solicitado") : p));
-  // Autorización administrativa: deja pasar el estudio a la cola operativa.
-  // (Placeholder del rol administrativo; el circuito real se define luego.)
-  const authorize = (id) => setPedidos((ps) => ps.map((p) => p.id === id && p.estado === "autorizacion_pendiente" ? conEvento(p, "solicitado") : p));
-  const revert = (id) => setPedidos((ps) => ps.map((p) => {
-    if (p.id !== id) return p;
+    if (next) updatePedido(id, conEvento(p, next));
+  };
+  
+  const solicitarTraslado = (id) => {
+    const p = pedidos.find(x => x.id === id);
+    if (p && p.estado === "solicitado") updatePedido(id, conEvento(p, "traslado_solicitado"));
+  };
+  
+  const authorize = (id) => {
+    const p = pedidos.find(x => x.id === id);
+    if (p && p.estado === "autorizacion_pendiente") updatePedido(id, conEvento(p, "solicitado"));
+  };
+  
+  const revert = (id) => {
+    const p = pedidos.find(x => x.id === id);
+    if (!p) return;
     const needsT = TRASLADOS[p.tipoTraslado]?.requiereTraslado;
     const back = { traslado_solicitado: "solicitado", en_proceso: needsT ? "traslado_solicitado" : "solicitado", realizado: "en_proceso" };
-    return back[p.estado] ? conEvento(p, back[p.estado]) : p;
-  }));
-  const cancel = (id) => setPedidos((ps) => ps.map((p) => p.id === id ? { ...conEvento(p, "cancelado"), avisoPendiente: null } : p));
+    if (back[p.estado]) updatePedido(id, conEvento(p, back[p.estado]));
+  };
+  
+  const cancel = (id) => {
+    const p = pedidos.find(x => x.id === id);
+    if (p) updatePedido(id, { ...conEvento(p, "cancelado"), avisoPendiente: null });
+  };
 
-  const addStudy = ({ paciente: pac, modalidad, descripcion, prioridad, motivo, tipoTraslado, conContraste }) => {
+  const addStudy = async ({ paciente: pac, modalidad, descripcion, prioridad, motivo, tipoTraslado, conContraste }) => {
     let pid, iid;
     const existente = pacientes.find((p) => p.hc && p.hc === pac.hc); // mismo paciente → no se duplica
     if (existente) {
@@ -808,49 +799,46 @@ export default function App() {
         iid = intern.id;
       } else {
         iid = uid("i_");
-        setInternaciones((xs) => [...xs, { id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" }]);
+        await createInternacion({ id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" });
       }
     } else {
       pid = uid("p_"); iid = uid("i_");
-      setPacientes((xs) => [...xs, { id: pid, hc: pac.hc, documento: { tipo: "DNI", numero: pac.dni }, apellido: pac.apellido, nombre: pac.nombre, fechaNacimiento: pac.fechaNacimiento, sexo: pac.sexo }]);
-      setInternaciones((xs) => [...xs, { id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" }]);
+      await createPaciente({ id: pid, hc: pac.hc, documento: { tipo: "DNI", numero: pac.dni }, apellido: pac.apellido, nombre: pac.nombre, fechaNacimiento: pac.fechaNacimiento, sexo: pac.sexo });
+      await createInternacion({ id: iid, pacienteId: pid, servicioId: pac.servicio, ubicacion: { sector: pac.sector, habitacion: "—", cama: pac.cama }, fechaIngreso: Date.now(), fechaAlta: null, estado: "activa" });
     }
     const estadoIni = (requiereAuth(modalidad) && prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
     const ahora = Date.now();
-    setPedidos((xs) => [{
-      id: uid("ped_"), internacionId: iid, servicioSolicitanteId: pac.servicio, creadoPor: currentUserId,
+    await createPedido({
+      internacionId: iid, servicioSolicitanteId: pac.servicio, creadoPor: currentUserId,
       modalidad, descripcion: descripcion.trim(), conContraste, prioridad,
       motivo: motivo.trim(), tipoTraslado,
       estado: estadoIni, fechaSolicitud: ahora,
       historial: [{ estado: estadoIni, ts: ahora, por: currentUserId }],
-    }, ...xs]);
+    });
     setModal(false);
   };
 
   const abrirEdicion = (study) => { setEditStudy(study); setModal(true); };
   const cerrarModal = () => { setModal(false); setEditStudy(null); };
+  
   const updateStudy = (id, d) => {
-    setPedidos((ps) => ps.map((p) => {
-      if (p.id !== id) return p;
-      let estado = p.estado, avisoPendiente = p.avisoPendiente ?? null;
-      if (estado === "autorizacion_pendiente" || estado === "solicitado")
-        estado = (requiereAuth(d.modalidad) && d.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
-      // Edición sobre un traslado ya solicitado: avisar al ayudante según el cambio.
-      if (p.estado === "traslado_solicitado" && p.tipoTraslado !== d.tipoTraslado) {
-        if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
-        else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
-      }
-      const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] : p.historial;
-      return { ...p, modalidad: d.modalidad, descripcion: d.descripcion.trim(), prioridad: d.prioridad, motivo: d.motivo.trim(), tipoTraslado: d.tipoTraslado, conContraste: d.conContraste, estado, avisoPendiente, historial: hist };
-    }));
+    const p = pedidos.find(x => x.id === id);
+    if (!p) return;
+    let estado = p.estado, avisoPendiente = p.avisoPendiente ?? null;
+    if (estado === "autorizacion_pendiente" || estado === "solicitado")
+      estado = (requiereAuth(d.modalidad) && d.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
+    // Edición sobre un traslado ya solicitado: avisar al ayudante según el cambio.
+    if (p.estado === "traslado_solicitado" && p.tipoTraslado !== d.tipoTraslado) {
+      if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
+      else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
+    }
+    const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] : p.historial;
+    updatePedido(id, { modalidad: d.modalidad, descripcion: d.descripcion.trim(), prioridad: d.prioridad, motivo: d.motivo.trim(), tipoTraslado: d.tipoTraslado, conContraste: d.conContraste, estado, avisoPendiente, historial: hist });
     setModal(false); setEditStudy(null);
   };
-  const avisado = (id) => setPedidos((ps) => ps.map((p) => p.id === id ? { ...p, avisoPendiente: null } : p));
+  const avisado = (id) => updatePedido(id, { avisoPendiente: null });
   const reiniciar = async () => {
-    if (STORE) { try { await STORE.delete(STORE_KEY, true); } catch (e) {} }
-    setPacientes(PACIENTES);
-    setInternaciones(INTERNACIONES);
-    setPedidos(PEDIDOS_SEED.map((p) => ({ ...p, historial: historialSeed(p) })));
+    // Reset en backend no implementado, ignorar
   };
 
   const isClosed = (s) => s.estado === "realizado";
@@ -866,4 +854,410 @@ export default function App() {
     auth: studies.filter((s) => s.estado === "autorizacion_pendiente").length,
     pend: studies.filter((s) => s.estado === "solicitado").length,
     proc: studies.filter((s) => s.estado === "en_proceso").length,
-    urg:  studies.filter((s) =>
+    urg:  studies.filter((s) => !isClosed(s) && s.estado !== "cancelado" && s.prioridad === "urgente").length,
+    done: studies.filter((s) => isClosed(s)).length,
+  }), [studies]);
+
+  const matchesQuery = (s) => {
+    const q = query.trim().toLowerCase();
+    return !q || s._paciente.nombreCompleto.toLowerCase().includes(q) || String(s._paciente.dni).includes(q) || String(s._paciente.hc).includes(q);
+  };
+
+  const imagingList = useMemo(() => studies
+    .filter(matchesQuery)
+    .filter((s) => !scope || scope.includes(s.modalidad))
+    .filter((s) => typeFilter === "todos" || s.modalidad === typeFilter)
+    .filter((s) => serviceFilter === "todos" || s._servicio === serviceFilter)
+    .filter((s) => (showDone || !isClosed(s)) && s.estado !== "cancelado")
+    .sort(sortFn), [studies, typeFilter, serviceFilter, query, showDone, scope]);
+
+  const groups = useMemo(() => {
+    let order = typeFilter === "todos" ? IMAGE_TYPES.map((t) => t.id) : [typeFilter];
+    if (scope) order = order.filter((id) => scope.includes(id));
+    return order.map((id) => ({ type: typeMeta(id), items: imagingList.filter((s) => s.modalidad === id) })).filter((g) => g.items.length);
+  }, [imagingList, typeFilter, scope]);
+
+  const myStudies = useMemo(() => studies.filter((s) => s._servicio === service && matchesQuery(s)).sort(sortFn), [studies, service, query]);
+  const myBy = (estados) => myStudies.filter((s) => estados.includes(s.estado));
+
+  const seg = (active) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`;
+
+  if (!cargado) return <div className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-400" style={{ fontFamily: FONT_SANS }}>Cargando…</div>;
+
+  return (
+    <div style={{ fontFamily: FONT_SANS }} className="min-h-screen bg-slate-50 text-slate-900">
+      <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-white"><Hospital size={18} /></span>
+            <div className="leading-tight"><div className="font-semibold">Imágenes</div><div className="text-xs text-slate-500">Circuito de estudios · Internación</div></div>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="flex rounded-xl bg-slate-200/70 p-1">
+              {has("ver_imagenes") && <button className={seg(role === "imaging")} onClick={() => setRole("imaging")}><Activity size={15} /> Imágenes</button>}
+              {has("ver_servicio") && <button className={seg(role === "clinical")} onClick={() => setRole("clinical")}><Stethoscope size={15} /> Sector</button>}
+              {has("gestionar_usuarios") && <button className={seg(role === "users")} onClick={() => setRole("users")}><Users size={15} /> Usuarios</button>}
+              {currentUser.rol === "admin" && <button className={seg(role === "dashboard")} onClick={() => setRole("dashboard")}><BarChart3 size={15} /> Dashboard</button>}
+            </div>
+            {has("ver_imagenes") && <button onClick={() => setPantalla(true)} title="Modo pantalla (tablero)" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"><Monitor size={15} /> Pantalla</button>}
+            {role === "clinical" && (
+              currentUser.rol === "medico" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 px-3 text-sm font-medium text-slate-600"><Stethoscope size={14} className="text-slate-400" /> {service}</span>
+              ) : (
+                <div className="relative">
+                  <select value={service} onChange={(e) => setService(e.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-blue-400">{SECTORES.map((s) => <option key={s}>{s}</option>)}</select>
+                  <ChevronDown size={15} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
+              )
+            )}
+            {/* Selector de usuario (placeholder de login: personifica un rol) */}
+            <div className="relative">
+              <UserCircle size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: ROLES[currentUser.rol].color }} />
+              <select value={currentUserId} onChange={(e) => setCurrentUserId(e.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-blue-400">
+                {USUARIOS.map((u) => <option key={u.id} value={u.id}>{u.nombre} · {ROLES[u.rol].label}</option>)}
+              </select>
+              <ChevronDown size={15} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+        {role === "imaging" && (
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <Kpi Icon={ShieldAlert}   label="Autorización pend." value={kpis.auth} accent="#ea580c" />
+            <Kpi Icon={ListChecks}    label="Pendientes"        value={kpis.pend} accent="#475569" />
+            <Kpi Icon={AlertTriangle} label="Código rojo activos" value={kpis.urg}  accent="#dc2626" />
+            <Kpi Icon={Play}          label="En proceso"        value={kpis.proc} accent="#2563eb" />
+            <Kpi Icon={CheckCircle2}  label="Realizados"        value={kpis.done} accent="#059669" />
+          </div>
+        )}
+
+        {role !== "users" && (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <div className="relative grow basis-56">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por paciente, DNI o HC…" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+          </div>
+
+          {role === "imaging" ? (
+            <>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                <button onClick={() => setTypeFilter("todos")} className={`rounded-md px-2.5 py-1 text-xs font-medium ${typeFilter === "todos" ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>Todos</button>
+                {IMAGE_TYPES.map((t) => (
+                  <button key={t.id} onClick={() => setTypeFilter(t.id)} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ${typeFilter === t.id ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}><t.Icon size={12} /> {t.short}</button>
+                ))}
+              </div>
+              <div className="relative">
+                <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-xs font-medium text-slate-600 outline-none focus:border-blue-400">
+                  <option value="todos">Todos los sectores</option>
+                  {SECTORES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <ChevronDown size={14} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <button onClick={() => setShowDone((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><Filter size={13} /> {showDone ? "Ocultar finalizados" : "Ver finalizados"}</button>
+            </>
+          ) : role === "clinical" && has("pedir_estudio") ? (
+            <button onClick={() => { setEditStudy(null); setModal(true); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"><Plus size={16} /> Nuevo estudio</button>
+          ) : null}
+        </div>
+        )}
+
+        {role === "dashboard" ? (
+          <DashboardView studies={studies} />
+        ) : role === "users" ? (
+          <UsersPanel currentUser={currentUser} onReset={reiniciar} />
+        ) : role === "imaging" ? (
+          groups.length === 0 ? <EmptyState text="No hay estudios que coincidan con el filtro." /> : (
+            <div className="space-y-6">
+              {groups.map((g) => (
+                <section key={g.type.id}>
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <span className={`grid h-7 w-7 place-items-center rounded-lg border ${g.type.badge}`}><g.type.Icon size={15} /></span>
+                    <h3 className="text-sm font-semibold text-slate-700">{g.type.label}</h3>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600" style={{ fontFamily: FONT_MONO }}>{g.items.length}</span>
+                  </div>
+                  {(() => {
+                    const rojos = g.items.filter((s) => alertaDemora(s, now) === "urgente").length;
+                    const prio  = g.items.filter((s) => alertaDemora(s, now) === "prioritario").length;
+                    if (!rojos && !prio) return null;
+                    return (
+                      <div className={`mb-2.5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium ${rojos ? "border-red-300 bg-red-50 text-red-700" : "border-amber-300 bg-amber-50 text-amber-700"}`}>
+                        <AlertTriangle size={14} />
+                        {rojos > 0 && <span>{rojos} código rojo sin atender (+30 min)</span>}
+                        {rojos > 0 && prio > 0 && <span aria-hidden>·</span>}
+                        {prio > 0 && <span>{prio} prioridad demorada (+2 h)</span>}
+                      </div>
+                    );
+                  })()}
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                    {g.items.map((s) => <div key={s.id} style={{ animation: "up .25s ease both" }}><StudyCard study={s} role={role} now={now} perms={perms} onAdvance={advance} onRevert={revert} currentUser={currentUser} onAuthorize={authorize} onTransfer={solicitarTraslado} /></div>)}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="space-y-6">
+            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} {...{ role, now, perms, currentUser, advance, revert, authorize, onEdit: abrirEdicion, onAvisado: avisado, cancel }} />
+            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} {...{ role, now, perms, currentUser, advance, revert, authorize, onEdit: abrirEdicion, onAvisado: avisado, cancel }} />
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso"])} {...{ role, now, perms, currentUser, advance, revert, authorize, onEdit: abrirEdicion, onAvisado: avisado, cancel }} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado"])} {...{ role, now, perms, currentUser, advance, revert, authorize, onEdit: abrirEdicion, onAvisado: avisado, cancel }} />
+            {myStudies.length === 0 && <EmptyState text={`${service} no tiene estudios cargados. Agregá el primero con "Nuevo estudio".`} />}
+          </div>
+        )}
+      </main>
+
+      <AddStudyModal open={modal} onClose={cerrarModal} onSubmit={addStudy} onUpdate={updateStudy} editStudy={editStudy} />
+      {pantalla && <BoardView studies={studies} now={now} onExit={() => setPantalla(false)} />}
+    </div>
+  );
+}
+
+function ClinicalSection({ title, items, role, now, perms, currentUser, advance, revert, authorize, onEdit, onAvisado, cancel }) {
+  if (!items.length) return null;
+  return (
+    <section>
+      <div className="mb-2.5 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600" style={{ fontFamily: FONT_MONO }}>{items.length}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {items.map((s) => <div key={s.id} style={{ animation: "up .25s ease both" }}><StudyCard study={s} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onEdit={onEdit} onAvisado={onAvisado} onCancel={cancel} /></div>)}
+      </div>
+    </section>
+  );
+}
+
+function UsersPanel({ currentUser, onReset }) {
+  const [confirmar, setConfirmar] = useState(false);
+  const roles = Object.entries(ROLES);
+  const permisos = Object.entries(PERMISOS);
+  return (
+    <div className="space-y-6">
+      {/* Matriz de permisos por rol */}
+      <section>
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700"><ShieldCheck size={15} /></span>
+          <h3 className="text-sm font-semibold text-slate-700">Roles y permisos</h3>
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left">
+                <th className="px-3 py-2.5 font-medium text-slate-500">Permiso</th>
+                {roles.map(([k, r]) => (
+                  <th key={k} className="px-3 py-2.5 text-center font-medium" style={{ color: r.color }}>{r.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {permisos.map(([pk, plabel]) => (
+                <tr key={pk} className="border-b border-slate-100 last:border-0">
+                  <td className="px-3 py-2 text-slate-700">{plabel}</td>
+                  {roles.map(([rk, r]) => (
+                    <td key={rk} className="px-3 py-2 text-center">
+                      {r.permisos.includes(pk)
+                        ? <Check size={16} className="mx-auto text-emerald-600" />
+                        : <span className="mx-auto block h-1 w-3 rounded-full bg-slate-200" />}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Vista de solo lectura. La edición de roles y la asignación de permisos se incorporan en el siguiente paso.</p>
+      </section>
+
+      {/* Usuarios */}
+      <section>
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600"><Users size={15} /></span>
+          <h3 className="text-sm font-semibold text-slate-700">Usuarios</h3>
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600" style={{ fontFamily: FONT_MONO }}>{USUARIOS.length}</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {USUARIOS.map((u) => {
+            const r = ROLES[u.rol];
+            const alcance = u.servicio
+              ? u.servicio
+              : u.rol === "tecnico"
+                ? (u.sectores?.length ? u.sectores.map((id) => typeMeta(id)?.short).join(", ") : "Todos los sectores")
+                : "—";
+            return (
+              <div key={u.id} className={`rounded-xl border bg-white p-3 ${u.id === currentUser.id ? "border-slate-400 ring-1 ring-slate-300" : "border-slate-200"}`}>
+                <div className="flex items-center gap-2">
+                  <span className="grid h-9 w-9 place-items-center rounded-full" style={{ background: r.color + "1a", color: r.color }}><UserCircle size={20} /></span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{u.nombre}{u.id === currentUser.id && <span className="ml-1 text-xs font-normal text-slate-400">(vos)</span>}</p>
+                    <p className="text-xs font-medium" style={{ color: r.color }}>{r.label}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                  <Lock size={11} className="text-slate-400" /> Alcance: <span className="font-medium text-slate-600">{alcance}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600"><RotateCcw size={15} /></span>
+          <h3 className="text-sm font-semibold text-slate-700">Datos</h3>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-sm text-slate-500">Los datos persisten entre recargas. Reiniciar restablece los datos de ejemplo y borra lo guardado.</p>
+          {!confirmar ? (
+            <button onClick={() => setConfirmar(true)} className="ml-auto shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Reiniciar datos</button>
+          ) : (
+            <span className="ml-auto flex shrink-0 items-center gap-2">
+              <button onClick={() => { onReset?.(); setConfirmar(false); }} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700">Confirmar</button>
+              <button onClick={() => setConfirmar(false)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Cancelar</button>
+            </span>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function duracionesEtapa(study) {
+  const h = study.historial || [];
+  const d = {};
+  for (let i = 0; i < h.length - 1; i++) d[h[i].estado] = (d[h[i].estado] || 0) + (h[i + 1].ts - h[i].ts);
+  return d;
+}
+const fmtDur = (ms) => {
+  if (ms == null || ms <= 0) return "—";
+  const m = Math.round(ms / 60000);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
+};
+const prom = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+
+function DashboardView({ studies }) {
+  const activos = studies.filter((s) => STATUS[s.estado]?.active).length;
+  const realizados = studies.filter((s) => s.estado === "realizado");
+  const cancelados = studies.filter((s) => s.estado === "cancelado").length;
+  const rojos = studies.filter((s) => s.prioridad === "urgente");
+
+  const etapas = [
+    { key: "autorizacion_pendiente", label: "Autorización" },
+    { key: "solicitado", label: "Espera (pendiente)" },
+    { key: "traslado_solicitado", label: "Traslado" },
+    { key: "en_proceso", label: "En proceso" },
+  ];
+  const etapaProm = etapas.map((e) => {
+    const vals = studies.map((s) => duracionesEtapa(s)[e.key]).filter((v) => v != null && v > 0);
+    return { ...e, ms: prom(vals), n: vals.length };
+  });
+  const maxEtapa = Math.max(1, ...etapaProm.map((e) => e.ms));
+
+  const porModalidad = IMAGE_TYPES.map((t) => ({ label: t.short, n: studies.filter((s) => s.modalidad === t.id).length })).filter((x) => x.n > 0);
+  const maxMod = Math.max(1, ...porModalidad.map((x) => x.n));
+
+  const sectores = {};
+  studies.forEach((s) => { sectores[s._servicio] = (sectores[s._servicio] || 0) + 1; });
+  const porSector = Object.entries(sectores).map(([label, n]) => ({ label, n })).sort((a, b) => b.n - a.n);
+  const maxSec = Math.max(1, ...porSector.map((x) => x.n));
+
+  const totalProm = prom(realizados.map((s) => { const h = s.historial || []; return h.length > 1 ? h[h.length - 1].ts - h[0].ts : 0; }).filter((v) => v > 0));
+
+  const rojoInicio = rojos.map((s) => { const h = s.historial || []; const ini = h.find((x) => x.estado === "en_proceso"); return ini && h[0] ? ini.ts - h[0].ts : null; }).filter((v) => v != null);
+  const rojoFuera = rojoInicio.filter((v) => v > 30 * 60000).length;
+
+  const exportarCSV = () => {
+    const cols = ["HC", "Paciente", "Sector", "Modalidad", "Estudio", "Prioridad", "Estado", "Solicitado", "Autorización(min)", "Espera(min)", "Traslado(min)", "Proceso(min)"];
+    const min = (ms) => (ms ? Math.round(ms / 60000) : "");
+    const filas = studies.map((s) => {
+      const d = duracionesEtapa(s);
+      return [s._paciente.hc, s._paciente.nombreCompleto, s._servicio, typeMeta(s.modalidad)?.label, s.descripcion, PRIORITIES[s.prioridad]?.label, STATUS[s.estado]?.label, new Date(s.fechaSolicitud).toLocaleString("es-AR"), min(d.autorizacion_pendiente), min(d.solicitado), min(d.traslado_solicitado), min(d.en_proceso)];
+    });
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [cols, ...filas].map((r) => r.map(esc).join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "imagenes-export.csv"; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const KPI = ({ label, value, sub }) => (
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
+      {sub && <div className="text-xs text-slate-400">{sub}</div>}
+    </div>
+  );
+  const Barra = ({ label, n, max, texto, color = "#0f172a" }) => (
+    <div className="flex items-center gap-3 text-sm">
+      <span className="w-36 shrink-0 truncate text-slate-600">{label}</span>
+      <div className="h-2.5 flex-1 rounded-full bg-slate-100"><div className="h-2.5 rounded-full" style={{ width: `${(n / max) * 100}%`, background: color }} /></div>
+      <span className="w-20 shrink-0 text-right font-medium text-slate-700 tabular-nums" style={{ fontFamily: FONT_MONO }}>{texto ?? n}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Panel de gestión</h2>
+          <p className="text-sm text-slate-500">Indicadores sobre el historial registrado.</p>
+        </div>
+        <button onClick={exportarCSV} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"><BarChart3 size={15} /> Exportar CSV</button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <KPI label="Total estudios" value={studies.length} />
+        <KPI label="En cola" value={activos} />
+        <KPI label="Realizados" value={realizados.length} />
+        <KPI label="Cancelados" value={cancelados} />
+        <KPI label="Código rojo" value={rojos.length} sub={rojoFuera > 0 ? `${rojoFuera} fuera de umbral` : "en umbral"} />
+        <KPI label="Demora total prom." value={fmtDur(totalProm)} sub="realizados" />
+      </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-700">Demora promedio por etapa</h3>
+        <div className="space-y-2.5">
+          {etapaProm.map((e) => <Barra key={e.key} label={e.label} n={e.ms} max={maxEtapa} texto={e.n ? fmtDur(e.ms) : "—"} color="#0ea5e9" />)}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Calculado entre cambios de estado consecutivos del historial.</p>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-700">Volumen por modalidad</h3>
+          <div className="space-y-2.5">
+            {porModalidad.length === 0 ? <p className="text-sm text-slate-400">Sin datos.</p> : porModalidad.map((m) => <Barra key={m.label} label={m.label} n={m.n} max={maxMod} />)}
+          </div>
+        </section>
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h3 className="mb-3 text-sm font-semibold text-slate-700">Volumen por sector solicitante</h3>
+          <div className="space-y-2.5">
+            {porSector.map((m) => <Barra key={m.label} label={m.label} n={m.n} max={maxSec} color="#8b5cf6" />)}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+        <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-red-700"><AlertTriangle size={15} /> Código rojo</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div><div className="text-2xl font-bold text-slate-900 tabular-nums">{rojos.length}</div><div className="text-xs text-slate-500">total</div></div>
+          <div><div className="text-2xl font-bold text-slate-900 tabular-nums">{rojoInicio.length ? fmtDur(prom(rojoInicio)) : "—"}</div><div className="text-xs text-slate-500">demora prom. al inicio</div></div>
+          <div><div className="text-2xl font-bold text-slate-900 tabular-nums">{rojoFuera}</div><div className="text-xs text-slate-500">superaron 30 min</div></div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div className="grid place-items-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-6 py-16 text-center">
+      <div className="mb-3 grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-400"><Activity size={22} /></div>
+      <p className="max-w-xs text-sm text-slate-500">{text}</p>
+    </div>
+  );
+}
