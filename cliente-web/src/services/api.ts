@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { Paciente, Internacion, Usuario, Pedido } from '../types';
 
+//const API_URL = 'http://localhost:3000';
 const API_URL = 'https://gestoy-imagenes.onrender.com';
 
 const api = axios.create({

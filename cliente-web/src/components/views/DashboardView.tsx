@@ -1,9 +1,12 @@
-import { BarChart3, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { BarChart3, AlertTriangle, FilterX } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { IMAGE_TYPES, PRIORITIES, STATUS } from '../../utils/constants';
 import { typeMeta } from '../../utils/helpers';
 import type { Pedido } from '../../types';
 
 const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
+const COLORS = ['#0ea5e9', '#8b5cf6', '#f59e0b', '#10b981', '#f43f5e', '#64748b'];
 
 function duracionesEtapa(study: Pedido) {
   const h = study.historial || [];
@@ -22,7 +25,22 @@ const fmtDur = (ms: number | null) => {
 
 const prom = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
 
-export function DashboardView({ studies }: { studies: Pedido[] }) {
+export function DashboardView({ studies: allStudies }: { studies: Pedido[] }) {
+  const [filtroOS, setFiltroOS] = useState<string | null>(null);
+
+  const obrasSociales: Record<string, number> = {};
+  allStudies.forEach((s) => {
+    const os = s._paciente?.obraSocial || 'Sin Obra Social';
+    obrasSociales[os] = (obrasSociales[os] || 0) + 1;
+  });
+  const dataObrasSociales = Object.entries(obrasSociales)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const studies = filtroOS 
+    ? allStudies.filter(s => (s._paciente?.obraSocial || 'Sin Obra Social') === filtroOS)
+    : allStudies;
+
   const activos = studies.filter((s) => STATUS[s.estado]?.active).length;
   const realizados = studies.filter((s) => s.estado === "realizado");
   const cancelados = studies.filter((s) => s.estado === "cancelado").length;
@@ -129,7 +147,7 @@ export function DashboardView({ studies }: { studies: Pedido[] }) {
         <p className="mt-2 text-xs text-slate-400">Calculado entre cambios de estado consecutivos del historial.</p>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-3 text-sm font-semibold text-slate-700">Volumen por modalidad</h3>
           <div className="space-y-2.5">
@@ -140,6 +158,56 @@ export function DashboardView({ studies }: { studies: Pedido[] }) {
           <h3 className="mb-3 text-sm font-semibold text-slate-700">Volumen por sector solicitante</h3>
           <div className="space-y-2.5">
             {porSector.map((m) => <Barra key={m.label} label={m.label} n={m.n} max={maxSec} color="#8b5cf6" />)}
+          </div>
+        </section>
+        <section className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Obras Sociales</h3>
+            {filtroOS && (
+              <button onClick={() => setFiltroOS(null)} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-200">
+                <FilterX size={12} /> Limpiar filtro
+              </button>
+            )}
+          </div>
+          <div className="flex-1 min-h-[200px]">
+            {dataObrasSociales.length === 0 ? <p className="text-sm text-slate-400">Sin datos.</p> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dataObrasSociales}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {dataObrasSociales.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[index % COLORS.length]} 
+                        onClick={() => setFiltroOS(filtroOS === entry.name ? null : entry.name)}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{ opacity: filtroOS && filtroOS !== entry.name ? 0.3 : 1 }}
+                      />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            {dataObrasSociales.map((os, index) => (
+              <div 
+                key={os.name} 
+                onClick={() => setFiltroOS(filtroOS === os.name ? null : os.name)}
+                className={`flex items-center gap-1.5 cursor-pointer rounded px-1.5 py-0.5 hover:bg-slate-50 transition-colors ${filtroOS && filtroOS !== os.name ? 'opacity-40' : ''}`}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
+                <span className="text-slate-600 font-medium">{os.name} ({os.value})</span>
+              </div>
+            ))}
           </div>
         </section>
       </div>

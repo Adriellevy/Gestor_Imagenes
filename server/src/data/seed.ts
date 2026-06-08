@@ -32,17 +32,17 @@ export const PADRON_HOSPITAL = [
 ];
 
 export const PACIENTES: Paciente[] = [
-  { id: 'p1', hc: '1042318', documento: { tipo: 'DNI', numero: '28.945.110' }, apellido: 'González', nombre: 'Marta', fechaNacimiento: today(1958, 4, 12), sexo: 'F' },
-  { id: 'p2', hc: '1038945', documento: { tipo: 'DNI', numero: '20.114.876' }, apellido: 'Pereyra', nombre: 'Jorge', fechaNacimiento: today(1953, 9, 3), sexo: 'M' },
-  { id: 'p3', hc: '1095102', documento: { tipo: 'DNI', numero: '41.302.559' }, apellido: 'Fernández', nombre: 'Lucía', fechaNacimiento: today(2017, 6, 21), sexo: 'F' },
-  { id: 'p4', hc: '1051877', documento: { tipo: 'DNI', numero: '16.778.234' }, apellido: 'Sosa', nombre: 'Roberto', fechaNacimiento: today(1967, 1, 30), sexo: 'M' },
-  { id: 'p5', hc: '1063340', documento: { tipo: 'DNI', numero: '33.567.901' }, apellido: 'Díaz', nombre: 'Ana Beatriz', fechaNacimiento: today(1980, 11, 8), sexo: 'F' },
-  { id: 'p6', hc: '1009921', documento: { tipo: 'DNI', numero: '12.090.443' }, apellido: 'Ramírez', nombre: 'Héctor', fechaNacimiento: today(1945, 3, 17), sexo: 'M' },
-  { id: 'p7', hc: '1087654', documento: { tipo: 'DNI', numero: '39.811.276' }, apellido: 'Castro', nombre: 'Sofía', fechaNacimiento: today(1991, 7, 2), sexo: 'F' },
-  { id: 'p8', hc: '1029013', documento: { tipo: 'DNI', numero: '25.443.668' }, apellido: 'Ibáñez', nombre: 'Daniel', fechaNacimiento: today(1964, 12, 19), sexo: 'M' },
-  { id: 'p9', hc: '1071266', documento: { tipo: 'DNI', numero: '30.225.187' }, apellido: 'Núñez', nombre: 'Valeria', fechaNacimiento: today(1996, 5, 27), sexo: 'F' },
-  { id: 'p10', hc: '1014488', documento: { tipo: 'DNI', numero: '14.556.029' }, apellido: 'Paz', nombre: 'Miguel Ángel', fechaNacimiento: today(1949, 8, 14), sexo: 'M' },
-  { id: 'p11', hc: '1080557', documento: { tipo: 'DNI', numero: '37.901.554' }, apellido: 'Medina', nombre: 'Carla', fechaNacimiento: today(1973, 2, 9), sexo: 'F' },
+  { id: 'p1', hc: '1042318', documento: { tipo: 'DNI', numero: '28.945.110' }, apellido: 'González', nombre: 'Marta', fechaNacimiento: today(1958, 4, 12), sexo: 'F', obraSocial: 'PAMI' },
+  { id: 'p2', hc: '1038945', documento: { tipo: 'DNI', numero: '20.114.876' }, apellido: 'Pereyra', nombre: 'Jorge', fechaNacimiento: today(1953, 9, 3), sexo: 'M', obraSocial: 'OSDE' },
+  { id: 'p3', hc: '1095102', documento: { tipo: 'DNI', numero: '41.302.559' }, apellido: 'Fernández', nombre: 'Lucía', fechaNacimiento: today(2017, 6, 21), sexo: 'F', obraSocial: 'Swiss Medical' },
+  { id: 'p4', hc: '1051877', documento: { tipo: 'DNI', numero: '16.778.234' }, apellido: 'Sosa', nombre: 'Roberto', fechaNacimiento: today(1967, 1, 30), sexo: 'M', obraSocial: 'Galeno' },
+  { id: 'p5', hc: '1063340', documento: { tipo: 'DNI', numero: '33.567.901' }, apellido: 'Díaz', nombre: 'Ana Beatriz', fechaNacimiento: today(1980, 11, 8), sexo: 'F', obraSocial: 'OSDE' },
+  { id: 'p6', hc: '1009921', documento: { tipo: 'DNI', numero: '12.090.443' }, apellido: 'Ramírez', nombre: 'Héctor', fechaNacimiento: today(1945, 3, 17), sexo: 'M', obraSocial: 'PAMI' },
+  { id: 'p7', hc: '1087654', documento: { tipo: 'DNI', numero: '39.811.276' }, apellido: 'Castro', nombre: 'Sofía', fechaNacimiento: today(1991, 7, 2), sexo: 'F', obraSocial: 'Swiss Medical' },
+  { id: 'p8', hc: '1029013', documento: { tipo: 'DNI', numero: '25.443.668' }, apellido: 'Ibáñez', nombre: 'Daniel', fechaNacimiento: today(1964, 12, 19), sexo: 'M', obraSocial: 'Sancor Salud' },
+  { id: 'p9', hc: '1071266', documento: { tipo: 'DNI', numero: '30.225.187' }, apellido: 'Núñez', nombre: 'Valeria', fechaNacimiento: today(1996, 5, 27), sexo: 'F', obraSocial: 'Medicus' },
+  { id: 'p10', hc: '1014488', documento: { tipo: 'DNI', numero: '14.556.029' }, apellido: 'Paz', nombre: 'Miguel Ángel', fechaNacimiento: today(1949, 8, 14), sexo: 'M', obraSocial: 'PAMI' },
+  { id: 'p11', hc: '1080557', documento: { tipo: 'DNI', numero: '37.901.554' }, apellido: 'Medina', nombre: 'Carla', fechaNacimiento: today(1973, 2, 9), sexo: 'F', obraSocial: 'OSDE' },
 ];
 
 export const INTERNACIONES: Internacion[] = [
