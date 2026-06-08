@@ -72,9 +72,9 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
           const pr = PRIORITIES[s.prioridad] || PRIORITIES.normal;
           const e = ESTADO_BOARD[s.estado] || { label: s.estado, cls: "text-slate-300" };
           const reqAuth = s.historial?.[0]?.estado === "autorizacion_pendiente";
-          const baseEspera = reqAuth ? (s.historial.find((h) => h.estado !== "autorizacion_pendiente")?.ts ?? null) : s.fechaSolicitud;
+          const baseEspera = reqAuth ? (s.historial?.find((h) => h.estado !== "autorizacion_pendiente")?.ts ?? null) : s.fechaSolicitud;
           const mins = baseEspera != null ? waitMins(baseEspera, now) : null;
-          const overdue = baseEspera != null && pr.umbralRojo != null && mins > pr.umbralRojo;
+          const overdue = baseEspera != null && pr.umbralRojo != null && mins != null && mins > pr.umbralRojo;
           const p = s._paciente || { nombreCompleto: "—", hc: "—", cama: "—" };
 
           return (
