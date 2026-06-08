@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Hospital, X } from 'lucide-react';
-import { typeMeta, waitMins, waitText } from '../../utils/helpers';
+import { typeMeta, waitMins, waitText, fmtHora } from '../../utils/helpers';
 import { IMAGE_TYPES, PRIORITIES, STATUS } from '../../utils/constants';
 import type { Pedido } from '../../types';
 
@@ -29,7 +29,7 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
     en_proceso:             { label: "EN PROCESO",  cls: "text-blue-300" },
   };
 
-  const COLS = "1fr 2fr 1.8fr 2.4fr 1.4fr 0.9fr";
+  const COLS = "1fr 2fr 1.6fr 2.2fr 0.9fr 1.2fr 0.9fr";
   const activos = studies
     .filter((s) => STATUS[s.estado]?.active && (filtro === "todos" || s.modalidad === filtro))
     .sort((a, b) => (PRIORITIES[a.prioridad]?.rank - PRIORITIES[b.prioridad]?.rank) || (a.fechaSolicitud - b.fechaSolicitud));
@@ -63,7 +63,7 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
         ))}
       </div>
       <div className="gap-4 border-b border-slate-800 px-8 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500" style={{ display: "grid", gridTemplateColumns: COLS }}>
-        <div>Estudio</div><div>Paciente</div><div>Origen</div><div>Detalle</div><div>Estado</div><div className="text-right">Espera</div>
+        <div>Estudio</div><div>Paciente</div><div>Origen</div><div>Detalle</div><div>Solicitado</div><div>Estado</div><div className="text-right">Espera</div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {activos.length === 0 && <div className="grid h-full place-items-center text-2xl text-slate-600">Sin estudios en cola</div>}
@@ -71,8 +71,10 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
           const t = typeMeta(s.modalidad) || { short: s.modalidad, Icon: Hospital };
           const pr = PRIORITIES[s.prioridad] || PRIORITIES.normal;
           const e = ESTADO_BOARD[s.estado] || { label: s.estado, cls: "text-slate-300" };
-          const mins = waitMins(s.fechaSolicitud, now);
-          const overdue = pr.umbralRojo != null && mins > pr.umbralRojo;
+          const reqAuth = s.historial?.[0]?.estado === "autorizacion_pendiente";
+          const baseEspera = reqAuth ? (s.historial.find((h) => h.estado !== "autorizacion_pendiente")?.ts ?? null) : s.fechaSolicitud;
+          const mins = baseEspera != null ? waitMins(baseEspera, now) : null;
+          const overdue = baseEspera != null && pr.umbralRojo != null && mins > pr.umbralRojo;
           const p = s._paciente || { nombreCompleto: "—", hc: "—", cama: "—" };
 
           return (
@@ -88,8 +90,9 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
               </div>
               <div className="truncate text-base text-slate-300">{s._servicio || "—"} · {p.cama}</div>
               <div className="truncate text-base text-slate-300">{s.descripcion}</div>
+              <div className="text-base text-slate-400 tabular-nums" style={{ fontFamily: FONT_MONO }}>{fmtHora(s.fechaSolicitud)}</div>
               <div className={`text-lg font-bold ${e.cls}`}>{e.label}</div>
-              <div className={`text-right text-2xl font-bold tabular-nums ${overdue ? "text-red-400" : "text-slate-200"}`} style={{ fontFamily: FONT_MONO }}>{waitText(s.fechaSolicitud, now)}</div>
+              <div className={`text-right text-2xl font-bold tabular-nums ${overdue ? "text-red-400" : "text-slate-200"}`} style={{ fontFamily: FONT_MONO }}>{baseEspera != null ? waitText(baseEspera, now) : "—"}</div>
             </div>
           );
         })}

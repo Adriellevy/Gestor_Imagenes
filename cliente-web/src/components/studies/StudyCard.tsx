@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   Clock, AlertTriangle, CheckCircle2, Play, X, 
-  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble 
+  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble, Layers 
 } from "lucide-react";
 import { typeMeta, waitMins, waitText, linkWhatsApp, fmtHora } from '../../utils/helpers';
 import { PRIORITIES, STATUS, TRASLADOS, ESTADOS_PRE_TRASLADO, ROLES } from '../../utils/constants';
@@ -48,6 +48,7 @@ export function StudyCard({
   
   const hermanosIda = patientStudies.filter(x => x.id !== study.id && x.estado === "solicitado" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
   const hermanosVuelta = patientStudies.filter(x => x.id !== study.id && x.estado === "en_proceso" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
+  const hermanos = patientStudies.filter(x => x.id !== study.id && STATUS[x.estado]?.active);
   
   const nextAction = () => {
     if (study.estado === "autorizacion_pendiente") return { label: "Autorizar", Icon: ShieldCheck, cls: "bg-orange-600 hover:bg-orange-700", authorize: true, perm: "autorizar" };
@@ -55,7 +56,7 @@ export function StudyCard({
       ? { label: "Solicitar traslado", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", transfer: true, perm: "iniciar" }
       : { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "traslado_solicitado") return { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
-    if (study.estado === "en_proceso") return { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar", returnTransfer: needsTransfer };
+    if (study.estado === "en_proceso") return { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar", returnTransfer: needsTransfer && hermanos.length === 0 };
     return null;
   };
   
@@ -92,6 +93,13 @@ export function StudyCard({
         <p className="mt-2 text-sm font-medium text-slate-800">{study.descripcion}</p>
         {study.motivo && <p className="mt-0.5 text-xs leading-snug text-slate-500">{study.motivo}</p>}
         <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><Truck size={12} className="text-slate-400" /> {TRASLADOS[study.tipoTraslado]?.label ?? "—"}{!needsTransfer && <span className="text-slate-400"> · sin traslado</span>}</p>
+        {hermanos.length > 0 && (
+          <p className={`mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${study.estado === "en_proceso" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-700"}`}>
+            <Layers size={11} /> {study.estado === "en_proceso"
+              ? `Quedan ${hermanos.length} estudio${hermanos.length > 1 ? "s" : ""} de este paciente — no devolver aún`
+              : `+${hermanos.length} de este paciente: ${[...new Set(hermanos.map((h) => typeMeta(h.modalidad)?.short))].join(", ")}`}
+          </p>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
           <div className="flex items-center gap-2 text-xs text-slate-500">
