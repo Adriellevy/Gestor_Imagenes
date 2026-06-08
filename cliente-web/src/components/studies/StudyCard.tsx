@@ -12,6 +12,7 @@ const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
 
 interface StudyCardProps {
   study: Pedido;
+  patientStudies?: Pedido[];
   usuarios: Usuario[];
   role: string;
   now: number;
@@ -27,7 +28,7 @@ interface StudyCardProps {
 }
 
 export function StudyCard({ 
-  study, usuarios, role, now, perms = {}, currentUser, 
+  study, patientStudies = [], usuarios, role, now, perms = {}, currentUser, 
   onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onCancel 
 }: StudyCardProps) {
   const [verHist, setVerHist] = useState(false);
@@ -36,7 +37,7 @@ export function StudyCard({
   const st = STATUS[study.estado] || { label: study.estado, active: false, badge: "bg-gray-50 text-gray-500" };
   
   // Si no está hidratado correctamente, previene error
-  const p = study._paciente || { nombreCompleto: "—", hc: "—", dni: "—", edad: "—", cama: "—" };
+  const p = study._paciente || { nombreCompleto: "—", hc: "—", dni: "—", edad: "—", cama: "—", obraSocial: undefined };
   
   const mins = waitMins(study.fechaSolicitud, now);
   const closed = study.estado === "realizado";
@@ -44,6 +45,9 @@ export function StudyCard({
 
   const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
   const puedeGestionar = perms.cancelar_pedido && ESTADOS_PRE_TRASLADO.includes(study.estado) && (currentUser?.rol === "admin" || currentUser?.id === study.creadoPor);
+  
+  const hermanosIda = patientStudies.filter(x => x.id !== study.id && x.estado === "solicitado" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
+  const hermanosVuelta = patientStudies.filter(x => x.id !== study.id && x.estado === "en_proceso" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
   
   const nextAction = () => {
     if (study.estado === "autorizacion_pendiente") return { label: "Autorizar", Icon: ShieldCheck, cls: "bg-orange-600 hover:bg-orange-700", authorize: true, perm: "autorizar" };
@@ -78,7 +82,8 @@ export function StudyCard({
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500" style={{ fontFamily: FONT_MONO }}>
               <span>HC {p.hc}</span><span>DNI {p.dni}</span><span>{p.edad} años</span>
-              <span className="inline-flex items-center gap-1"><BedDouble size={12} /> {p.cama}</span>
+              {p.obraSocial && <span className="font-semibold text-blue-600 font-sans">{p.obraSocial}</span>}
+              <span className="inline-flex items-center gap-1 font-sans"><BedDouble size={12} /> {p.cama}</span>
             </div>
           </div>
           <Badge className={`${t.badge} shrink-0`}><t.Icon size={12} /> {t.short}</Badge>
@@ -107,12 +112,12 @@ export function StudyCard({
               )}
               {na && puedeAccion && (
                 na.transfer ? (
-                  <a href={linkWhatsApp(study)} target="_blank" rel="noopener noreferrer" onClick={() => onTransfer(study.id)} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
-                    <na.Icon size={12} /> {na.label}
+                  <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => { onTransfer(study.id); hermanosIda.forEach(h => onTransfer(h.id)); }} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                    <na.Icon size={12} /> {na.label} {hermanosIda.length > 0 && `(${hermanosIda.length + 1})`}
                   </a>
                 ) : na.returnTransfer ? (
-                  <a href={linkWhatsApp(study, "vuelta")} target="_blank" rel="noopener noreferrer" onClick={() => onAdvance(study.id)} title="Finaliza y avisa el traslado de regreso" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
-                    <na.Icon size={12} /> {na.label}
+                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado de regreso" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                    <na.Icon size={12} /> {na.label} {hermanosVuelta.length > 0 && `(${hermanosVuelta.length + 1})`}
                   </a>
                 ) : (
                   <button onClick={() => (na.authorize ? onAuthorize(study.id) : onAdvance(study.id))} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>

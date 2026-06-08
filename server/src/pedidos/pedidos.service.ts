@@ -28,6 +28,19 @@ export class PedidosService {
     return null;
   }
 
+  cambiarEstado(id: string, estado: string, userId: string): Pedido | null {
+    const pedido = this.pedidos.find((p) => p.id === id);
+    if (!pedido) return null;
+    
+    pedido.estado = estado;
+    pedido.historial = [
+      ...(pedido.historial || []),
+      { estado, ts: Date.now(), por: userId }
+    ];
+    
+    return pedido;
+  }
+
   reset(): void {
     this.pedidos = [...PEDIDOS_SEED];
   }

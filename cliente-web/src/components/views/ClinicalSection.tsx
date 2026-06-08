@@ -7,6 +7,7 @@ interface ClinicalSectionProps {
   usuarios: Usuario[];
   title: string;
   items: Pedido[];
+  allStudies?: Pedido[];
   role: string;
   now: number;
   perms: Record<string, boolean>;
@@ -21,7 +22,7 @@ interface ClinicalSectionProps {
 }
 
 export function ClinicalSection({ 
-  usuarios, title, items, role, now, perms, currentUser, 
+  usuarios, title, items, allStudies = [], role, now, perms, currentUser, 
   advance, revert, authorize, onEdit, onAvisado, cancel, solicitarTraslado 
 }: ClinicalSectionProps) {
   if (!items.length) return null;
@@ -36,6 +37,7 @@ export function ClinicalSection({
           <div key={s.id} style={{ animation: "up .25s ease both" }}>
             <StudyCard 
               study={s} 
+              patientStudies={allStudies.filter(x => x.internacionId === s.internacionId)}
               usuarios={usuarios}
               role={role} 
               now={now} 

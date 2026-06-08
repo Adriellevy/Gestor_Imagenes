@@ -11,6 +11,7 @@ export interface Paciente {
   nombre: string;
   fechaNacimiento: string;
   sexo: string;
+  obraSocial?: string;
 }
 
 export interface Ubicacion {
@@ -62,6 +63,7 @@ export interface Pedido {
     dni: string;
     edad: number | string;
     cama: string;
+    obraSocial?: string;
   };
   _servicio?: string;
 }

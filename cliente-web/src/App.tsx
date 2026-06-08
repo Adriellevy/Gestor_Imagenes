@@ -11,17 +11,20 @@ import { BoardView } from "./components/views/BoardView";
 import { DashboardView } from "./components/views/DashboardView";
 import { ClinicalSection } from "./components/views/ClinicalSection";
 import { UsersPanel } from "./components/views/UsersPanel";
+import { LoginScreen } from "./components/views/LoginScreen";
 import { Header } from "./components/layout/Header";
-import type { Pedido, Usuario } from "./types";
+import type { Pedido } from "./types";
 
 const FONT_SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
 
 export default function App() {
   const { 
-    usuarios, currentUser, setCurrentUser, 
+    usuarios, currentUser, logout, login, cambiarEstadoPedido,
     pedidos, pacientes, internaciones, padron,
     loading, fetchData, createPedido, updatePedido, createPaciente, createInternacion, resetData
   } = useStore();
+
+  const [sessionWarning, setSessionWarning] = useState(false);
 
   const [cargado, setCargado] = useState(false);
   const [role, setRole] = useState("clinical");
@@ -29,7 +32,6 @@ export default function App() {
   const [service, setService] = useState(SECTORES[0]);
   const [pantalla, setPantalla] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [currentUserId, setCurrentUserId] = useState("u2");
   
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("todos");
@@ -49,9 +51,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const usr = usuarios.find((u) => u.id === currentUserId) as Usuario;
+    if (!currentUser) return;
+    const warningTimer = setTimeout(() => setSessionWarning(true), 58 * 60 * 1000);
+    const logoutTimer = setTimeout(() => {
+      setSessionWarning(false);
+      logout();
+    }, 60 * 60 * 1000);
+
+    return () => {
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+    };
+  }, [currentUser, logout]);
+
+  useEffect(() => {
+    // Current user is now managed by the store globally, so we just use the role logic
+    const usr = currentUser;
     if (usr) {
-      setCurrentUser(usr);
       const vistas = [];
       const has = (p: string) => (ROLES as any)[usr.rol]?.permisos.includes(p);
       if (has("ver_imagenes")) vistas.push("imaging");
@@ -61,9 +77,9 @@ export default function App() {
       
       if (!vistas.includes(role)) setRole(vistas[0] || "users");
       if (usr.servicio) setService(usr.servicio);
-      setScope(usr.sectores || null);
+      setScope(usr.rol === 'tecnico' || usr.rol === 'personal_imagenes' ? null : (usr.sectores || null));
     }
-  }, [currentUserId, role, setCurrentUser, usuarios]);
+  }, [currentUser, role, usuarios]);
 
   const hasPermission = (perm: string) => Boolean(currentUser && (ROLES as any)[currentUser.rol]?.permisos.includes(perm));
   const perms = currentUser ? Object.fromEntries(((ROLES as any)[currentUser.rol]?.permisos || []).map((k: string) => [k, true])) : {};
@@ -73,56 +89,44 @@ export default function App() {
   }, [pedidos, internaciones, pacientes]);
 
   // Actions
-  const advance = (id: string) => {
+  const conEvento = async (id: string, action: string) => {
     const study = studies.find(s => s.id === id);
     if (!study) return;
-    const n = study.estado === "autorizacion_pendiente" ? "solicitado" :
-              study.estado === "solicitado" ? "en_proceso" :
-              study.estado === "traslado_solicitado" ? "en_proceso" :
-              study.estado === "en_proceso" ? "realizado" : study.estado;
+    const h = study.historial || [];
+    let n = study.estado;
+    
+    if (action === "advance") {
+      n = n === "autorizacion_pendiente" ? "solicitado" :
+          n === "solicitado" || n === "traslado_solicitado" ? "en_proceso" :
+          n === "en_proceso" ? "realizado" : n;
+    } else if (action === "revert" && h.length > 1) {
+      n = h[h.length - 2].estado;
+    } else if (action === "authorize") n = "solicitado";
+    else if (action === "transfer") n = "traslado_solicitado";
+    else if (action === "cancel") n = "cancelado";
+
     if (n !== study.estado) {
-      updatePedido(id, { 
-        estado: n, 
-        historial: [...(study.historial || []), { estado: n, ts: Date.now(), por: currentUserId }] 
-      });
+      if (action === "revert") {
+        const newH = [...h];
+        newH.pop();
+        await updatePedido(id, { estado: n, historial: newH });
+      } else if (action === "cancel") {
+        await updatePedido(id, { 
+          estado: n, 
+          avisoPendiente: study.estado === "traslado_solicitado" ? "cancel" : undefined,
+          historial: [...h, { estado: n, ts: Date.now(), por: currentUser?.id }] 
+        });
+      } else {
+        await cambiarEstadoPedido(id, n, currentUser?.id || "u2");
+      }
     }
   };
 
-  const revert = (id: string) => {
-    const study = studies.find(s => s.id === id);
-    if (!study || !study.historial || study.historial.length < 2) return;
-    const h = [...study.historial];
-    h.pop();
-    updatePedido(id, { estado: h[h.length - 1].estado, historial: h });
-  };
-
-  const authorize = (id: string) => {
-    const study = studies.find(s => s.id === id);
-    if (!study) return;
-    updatePedido(id, { 
-      estado: "solicitado", 
-      historial: [...(study.historial || []), { estado: "solicitado", ts: Date.now(), por: currentUserId }] 
-    });
-  };
-
-  const solicitarTraslado = (id: string) => {
-    const study = studies.find(s => s.id === id);
-    if (!study) return;
-    updatePedido(id, { 
-      estado: "traslado_solicitado", 
-      historial: [...(study.historial || []), { estado: "traslado_solicitado", ts: Date.now(), por: currentUserId }] 
-    });
-  };
-
-  const cancel = (id: string) => {
-    const study = studies.find(s => s.id === id);
-    if (!study) return;
-    updatePedido(id, { 
-      estado: "cancelado", 
-      avisoPendiente: study.estado === "traslado_solicitado" ? "cancel" : undefined,
-      historial: [...(study.historial || []), { estado: "cancelado", ts: Date.now(), por: currentUserId }] 
-    });
-  };
+  const advance = (id: string) => conEvento(id, "advance");
+  const revert = (id: string) => conEvento(id, "revert");
+  const authorize = (id: string) => conEvento(id, "authorize");
+  const solicitarTraslado = (id: string) => conEvento(id, "transfer");
+  const cancel = (id: string) => conEvento(id, "cancel");
 
   const avisado = (id: string) => updatePedido(id, { avisoPendiente: undefined });
 
@@ -151,11 +155,11 @@ export default function App() {
     const ahora = Date.now();
     
     await createPedido({
-      internacionId: finalIid, servicioSolicitanteId: data.paciente.sector, creadoPor: currentUserId,
+      internacionId: finalIid, servicioSolicitanteId: data.paciente.sector, creadoPor: currentUser?.id,
       modalidad: data.modalidad, descripcion: data.descripcion.trim(), conContraste: data.conContraste, prioridad: data.prioridad,
       motivo: data.motivo.trim(), tipoTraslado: data.tipoTraslado, regionAnatomica: "",
       estado: estadoIni, fechaSolicitud: ahora,
-      historial: [{ estado: estadoIni, ts: ahora, por: currentUserId }]
+      historial: [{ estado: estadoIni, ts: ahora, por: currentUser?.id }]
     });
     setModal(false);
   };
@@ -172,7 +176,7 @@ export default function App() {
       if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
       else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
     }
-    const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUserId }] : p.historial;
+    const hist = estado !== p.estado ? [...(p.historial || []), { estado, ts: Date.now(), por: currentUser?.id }] : p.historial;
 
     updatePedido(id, {
       ...d,
@@ -228,8 +232,12 @@ export default function App() {
     done: studies.filter((s) => isClosed(s)).length,
   }), [studies]);
 
-  if (!cargado || loading || !currentUser) {
+  if (!cargado || loading) {
     return <div className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-400" style={{ fontFamily: FONT_SANS }}>Cargando…</div>;
+  }
+
+  if (!currentUser) {
+    return <LoginScreen />;
   }
 
   return (
@@ -237,8 +245,8 @@ export default function App() {
       <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
 
       <Header 
-        usuarios={usuarios} role={role} setRole={setRole} currentUser={currentUser} 
-        setCurrentUserId={setCurrentUserId} service={service} setService={setService} 
+        role={role} setRole={setRole} currentUser={currentUser} 
+        onLogout={logout} service={service} setService={setService} 
         hasPermission={hasPermission} setPantalla={setPantalla} 
       />
 
@@ -270,7 +278,7 @@ export default function App() {
                 </div>
                 <div className="relative">
                   <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-xs font-medium text-slate-600 outline-none focus:border-blue-400">
-                    <option value="todos">Todos los sectores</option>
+                    <option value="todos">Todas las áreas</option>
                     {SECTORES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -314,7 +322,7 @@ export default function App() {
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                       {g.items.map((s) => (
                       <div key={s.id} style={{ animation: "up .25s ease both" }}>
-                        <StudyCard study={s} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEdit={(st) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
+                        <StudyCard study={s} patientStudies={studies.filter(x => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEdit={(st) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
                       </div>
                     ))}
                   </div>
@@ -324,10 +332,10 @@ export default function App() {
           )
         ) : (
           <div className="space-y-6">
-            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="En proceso" items={myBy(["en_proceso"])} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado"])} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
             {myStudies.length === 0 && <EmptyState text={`${service} no tiene estudios cargados. Agregá el primero con "Nuevo estudio".`} />}
           </div>
         )}
@@ -335,6 +343,24 @@ export default function App() {
 
       <AddStudyModal open={modal} onClose={() => {setModal(false); setEditStudy(null)}} onSubmit={handleAddStudy} onUpdate={handleUpdateStudy} editStudy={editStudy} padron={padron} />
       {pantalla && <BoardView studies={studies} now={now} onExit={() => setPantalla(false)} />}
+      
+      {sessionWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" style={{ animation: "pop .2s ease-out" }}>
+            <h3 className="mb-2 text-lg font-bold text-slate-900">Aviso de sesión</h3>
+            <p className="mb-6 text-sm text-slate-600">
+              Tu sesión está a punto de expirar por inactividad. ¿Deseas mantenerla activa?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => logout()} className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cerrar sesión</button>
+              <button onClick={() => {
+                setSessionWarning(false);
+                login(currentUser.id); // Refresh token
+              }} className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Mantener activa</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

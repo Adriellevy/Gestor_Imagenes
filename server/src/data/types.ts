@@ -6,6 +6,7 @@ export interface Paciente {
   nombre: string;
   fechaNacimiento: string;
   sexo: string;
+  obraSocial?: string;
 }
 
 export interface Internacion {

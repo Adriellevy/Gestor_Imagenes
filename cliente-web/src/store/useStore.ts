@@ -17,9 +17,12 @@ interface AppState {
   fetchData: () => Promise<void>;
   createPedido: (pedido: Omit<Pedido, 'id'>) => Promise<void>;
   updatePedido: (id: string, updates: Partial<Pedido>) => Promise<void>;
+  cambiarEstadoPedido: (id: string, estado: string, userId: string) => Promise<void>;
   createPaciente: (paciente: Omit<Paciente, 'id'> | Paciente) => Promise<void>;
   createInternacion: (internacion: Omit<Internacion, 'id'> | Internacion) => Promise<void>;
   resetData: () => Promise<void>;
+  login: (userId: string) => Promise<void>;
+  logout: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -60,6 +63,21 @@ export const useStore = create<AppState>((set) => ({
     }
   },
   
+  login: async (userId: string) => {
+    try {
+      const { access_token, user } = await api.login(userId);
+      api.setAuthToken(access_token);
+      set({ currentUser: user });
+    } catch (error) {
+      console.error('Error logging in:', error);
+    }
+  },
+
+  logout: () => {
+    api.setAuthToken(null);
+    set({ currentUser: null });
+  },
+
   updatePedido: async (id, updates) => {
     try {
       const updatedPedido = await api.updatePedido(id, updates);
@@ -68,6 +86,17 @@ export const useStore = create<AppState>((set) => ({
       }));
     } catch (error) {
       console.error('Error updating pedido:', error);
+    }
+  },
+  
+  cambiarEstadoPedido: async (id, estado, userId) => {
+    try {
+      const updatedPedido = await api.cambiarEstadoPedido(id, estado, userId);
+      set((state) => ({
+        pedidos: state.pedidos.map((p) => (p.id === id ? updatedPedido : p)),
+      }));
+    } catch (error) {
+      console.error('Error changing estado:', error);
     }
   },
   

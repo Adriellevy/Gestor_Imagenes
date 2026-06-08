@@ -78,7 +78,7 @@ export function DashboardView({ studies }: { studies: Pedido[] }) {
       ];
     });
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const csv = [cols, ...filas].map((r) => r.map(esc).join(",")).join("\n");
+    const csv = [cols, ...filas].map((r) => r.map(esc).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "imagenes-export.csv"; a.click(); URL.revokeObjectURL(url);

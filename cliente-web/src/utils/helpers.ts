@@ -27,12 +27,19 @@ export const opcionesTraslado = (modalidad: string, sector: string) => {
 };
 
 const NUMERO_TRASLADOS = "5491100000000";
-export function mensajeTraslado(study: any, tipo = "ida") {
+export function mensajeTraslado(study: any, tipo = "ida", hermanos?: any[]) {
   const imagenes = typeMeta(study.modalidad)?.label ?? "Imágenes";
   const ubic = `${study._servicio} - ${study._paciente?.cama}`;
   const tr = TRASLADOS[study.tipoTraslado]?.label ?? "—";
   const paciente = `Paciente: ${study._paciente?.nombreCompleto} (HC ${study._paciente?.hc})`;
   const vuelta = tipo === "vuelta";
+  
+  let estText = `Estudio: ${study.descripcion}`;
+  if (hermanos && hermanos.length > 0) {
+    const todos = [study, ...hermanos];
+    estText = `Estudios (${todos.length}): ${todos.map(s => s.descripcion).join(", ")}`;
+  }
+  
   const lineas =
     tipo === "cancel" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "Estudio suspendido."] :
     tipo === "sintraslado" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "El estudio se realizará sin traslado."] :
@@ -42,12 +49,12 @@ export function mensajeTraslado(study: any, tipo = "ida") {
       paciente,
       ...(vuelta ? [`Desde: ${imagenes}`, `Hacia: ${ubic}`] : [`Origen: ${ubic}`, `Destino: ${imagenes}`]),
       `Traslado: ${tr}`,
-      `Estudio: ${study.descripcion}${vuelta ? " (finalizado)" : ""}`,
+      estText + (vuelta ? " (finalizados)" : ""),
       `Prioridad: ${PRIORITIES[study.prioridad]?.label}`,
     ];
   return lineas.join("\n");
 }
-export const linkWhatsApp = (study: any, tipo = "ida") => `https://wa.me/${NUMERO_TRASLADOS}?text=${encodeURIComponent(mensajeTraslado(study, tipo))}`;
+export const linkWhatsApp = (study: any, tipo = "ida", hermanos?: any[]) => `https://wa.me/${NUMERO_TRASLADOS}?text=${encodeURIComponent(mensajeTraslado(study, tipo, hermanos))}`;
 
 export const fmtHora = (ts: number) => new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
@@ -70,6 +77,7 @@ export function hidratar(pedido: Pedido, internaciones: Internacion[], pacientes
       dni: paciente?.documento.numero ?? "—",
       edad: paciente ? edad(paciente.fechaNacimiento) : "—",
       cama: internacion?.ubicacion.cama ?? "—",
+      obraSocial: paciente?.obraSocial,
     },
     _servicio: internacion?.servicioId ?? pedido.servicioSolicitanteId,
   };
