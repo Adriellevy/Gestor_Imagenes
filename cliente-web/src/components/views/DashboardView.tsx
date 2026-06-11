@@ -27,9 +27,19 @@ const prom = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / a
 
 export function DashboardView({ studies: allStudies }: { studies: Pedido[] }) {
   const [filtroOS, setFiltroOS] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
+  const filteredByDate = allStudies.filter(s => {
+    if (!startDate && !endDate) return true;
+    const d = new Date(s.fechaSolicitud);
+    if (startDate && d < new Date(startDate + "T00:00:00")) return false;
+    if (endDate && d > new Date(endDate + "T23:59:59")) return false;
+    return true;
+  });
 
   const obrasSociales: Record<string, number> = {};
-  allStudies.forEach((s) => {
+  filteredByDate.forEach((s) => {
     const os = s._paciente?.obraSocial || 'Sin Obra Social';
     obrasSociales[os] = (obrasSociales[os] || 0) + 1;
   });
@@ -38,8 +48,8 @@ export function DashboardView({ studies: allStudies }: { studies: Pedido[] }) {
     .sort((a, b) => b.value - a.value);
 
   const studies = filtroOS 
-    ? allStudies.filter(s => (s._paciente?.obraSocial || 'Sin Obra Social') === filtroOS)
-    : allStudies;
+    ? filteredByDate.filter(s => (s._paciente?.obraSocial || 'Sin Obra Social') === filtroOS)
+    : filteredByDate;
 
   const activos = studies.filter((s) => STATUS[s.estado]?.active).length;
   const realizados = studies.filter((s) => s.estado === "realizado");
@@ -127,7 +137,15 @@ export function DashboardView({ studies: allStudies }: { studies: Pedido[] }) {
           <h2 className="text-lg font-semibold text-slate-900">Panel de gestión</h2>
           <p className="text-sm text-slate-500">Indicadores sobre el historial registrado.</p>
         </div>
-        <button onClick={exportarCSV} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"><BarChart3 size={15} /> Exportar CSV</button>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-600">
+            <span>Desde:</span>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="outline-none bg-transparent" />
+            <span className="ml-2">Hasta:</span>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="outline-none bg-transparent" />
+          </div>
+          <button onClick={exportarCSV} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"><BarChart3 size={15} /> Exportar CSV</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

@@ -7,7 +7,16 @@ export class PedidosService {
   private pedidos: Pedido[] = [...PEDIDOS_SEED];
 
   findAll(): Pedido[] {
-    return this.pedidos;
+    return this.pedidos.filter(p => p.estado !== 'realizado' && p.estado !== 'cancelado');
+  }
+
+  findTerminados(page: number, limit: number): { data: Pedido[], total: number, page: number, limit: number } {
+    const terminados = this.pedidos.filter(p => p.estado === 'realizado' || p.estado === 'cancelado');
+    // Sort descending by request date so newer completed are first
+    terminados.sort((a, b) => b.fechaSolicitud - a.fechaSolicitud);
+    const start = (page - 1) * limit;
+    const data = terminados.slice(start, start + limit);
+    return { data, total: terminados.length, page, limit };
   }
 
   create(pedido: Omit<Pedido, 'id'>): Pedido {

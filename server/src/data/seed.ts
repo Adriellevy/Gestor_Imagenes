@@ -94,20 +94,44 @@ function historialSeed(p: Partial<Pedido>) {
 
 const RAW_PEDIDOS_SEED: Omit<Pedido, 'historial'>[] = [
   { id: uid('ped_'), internacionId: 'i1', servicioSolicitanteId: 'UCO', creadoPor: 'u2', modalidad: 'tc', descripcion: 'Angiotomografía de encéfalo (vasos intra y extracraneanos)', tipoTraslado: 'camilla', regionAnatomica: 'Encéfalo', conContraste: true, prioridad: 'urgente', estado: 'solicitado', motivo: 'ACV', fechaSolicitud: minsAgo(54) },
-  { id: uid('ped_'), internacionId: 'i2', servicioSolicitanteId: 'UTI 1 (5to piso)', modalidad: 'rx', descripcion: 'Rx de tórax portátil', tipoTraslado: 'habitacion', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'urgente', estado: 'en_proceso', motivo: 'Control de vía central.', fechaSolicitud: minsAgo(38) },
-  { id: uid('ped_'), internacionId: 'i3', servicioSolicitanteId: 'Clínica médica (9no piso B)', modalidad: 'rx', descripcion: 'Rx de muñeca derecha (F y P)', tipoTraslado: 'silla', regionAnatomica: 'Muñeca', lateralidad: 'derecha', conContraste: false, prioridad: 'prioritario', estado: 'solicitado', motivo: 'Traumatismo, sospecha de fractura.', fechaSolicitud: minsAgo(22) },
   { id: uid('ped_'), internacionId: 'i4', servicioSolicitanteId: 'Telemetría', modalidad: 'ecocardio', descripcion: 'Ecocardiograma transtorácico', tipoTraslado: 'habitacion', regionAnatomica: 'Corazón', conContraste: false, prioridad: 'prioritario', estado: 'solicitado', motivo: 'Disnea de esfuerzo, evaluar FEVI.', fechaSolicitud: minsAgo(71) },
   { id: uid('ped_'), internacionId: 'i5', servicioSolicitanteId: 'Clínica médica (8vo piso A)', modalidad: 'rm', descripcion: 'RM de cerebro c/ y s/ contraste', tipoTraslado: 'camilla', regionAnatomica: 'Cerebro', conContraste: true, prioridad: 'prioritario', estado: 'autorizacion_pendiente', motivo: 'Cefalea persistente con foco neurológico.', fechaSolicitud: minsAgo(95) },
-  { id: uid('ped_'), internacionId: 'i6', servicioSolicitanteId: 'Clínica médica (7mo piso A)', creadoPor: 'u1', modalidad: 'rx', descripcion: 'Rx de tórax (F)', tipoTraslado: 'habitacion', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Control evolutivo de neumonía.', fechaSolicitud: minsAgo(160) },
   { id: uid('ped_'), internacionId: 'i7', servicioSolicitanteId: 'Recuperación cardiovascular', modalidad: 'tc', descripcion: 'Angiotomografía de tórax (protocolo TEP)', tipoTraslado: 'asistido', regionAnatomica: 'Tórax', conContraste: true, prioridad: 'urgente', estado: 'solicitado', motivo: 'TEP', fechaSolicitud: minsAgo(12) },
   { id: uid('ped_'), internacionId: 'i8', servicioSolicitanteId: 'UTI 2 (6to piso)', modalidad: 'eco', descripcion: 'Eco-doppler de MMII', tipoTraslado: 'habitacion', regionAnatomica: 'Miembros inferiores', lateralidad: 'bilateral', conContraste: false, prioridad: 'prioritario', estado: 'en_proceso', motivo: 'Edema unilateral, descartar TVP.', fechaSolicitud: minsAgo(44) },
   { id: uid('ped_'), internacionId: 'i9', servicioSolicitanteId: 'Guardia', modalidad: 'eco', descripcion: 'Ecografía abdominal', tipoTraslado: 'ambulatorio', regionAnatomica: 'Abdomen', conContraste: false, prioridad: 'normal', estado: 'solicitado', motivo: 'Dolor en fosa ilíaca derecha.', fechaSolicitud: minsAgo(8) },
   { id: uid('ped_'), internacionId: 'i10', servicioSolicitanteId: 'Clínica médica (8vo piso B)', modalidad: 'tc', descripcion: 'Tomografía de encéfalo (sin contraste)', tipoTraslado: 'camilla', regionAnatomica: 'Cerebro', conContraste: false, prioridad: 'urgente', estado: 'realizado', motivo: 'ACV', fechaSolicitud: minsAgo(190) },
-  { id: uid('ped_'), internacionId: 'i11', servicioSolicitanteId: 'Telemetría', modalidad: 'rx', descripcion: 'Rx de tórax (F y P)', tipoTraslado: 'silla', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'normal', estado: 'solicitado', motivo: 'Evaluación prequirúrgica.', fechaSolicitud: minsAgo(33) },
   { id: uid('ped_'), internacionId: 'i6', servicioSolicitanteId: 'Clínica médica (7mo piso A)', creadoPor: 'u1', modalidad: 'mn', descripcion: 'Centellograma óseo corporal total', tipoTraslado: 'camilla', regionAnatomica: 'Cuerpo entero', conContraste: false, prioridad: 'normal', estado: 'autorizacion_pendiente', motivo: 'Búsqueda de secundarismo óseo.', fechaSolicitud: minsAgo(120) },
+  { id: uid('ped_'), internacionId: 'i2', servicioSolicitanteId: 'UTI 1 (5to piso)', modalidad: 'eco', descripcion: 'Ecografía renal', tipoTraslado: 'habitacion', regionAnatomica: 'Riñón', conContraste: false, prioridad: 'urgente', estado: 'realizado', motivo: 'Falla renal', fechaSolicitud: minsAgo(1400) },
+  { id: uid('ped_'), internacionId: 'i3', servicioSolicitanteId: 'Clínica médica (9no piso B)', modalidad: 'tc', descripcion: 'TC de tórax', tipoTraslado: 'camilla', regionAnatomica: 'Tórax', conContraste: true, prioridad: 'prioritario', estado: 'cancelado', motivo: 'Sospecha neumonía', fechaSolicitud: minsAgo(1800) },
+  { id: uid('ped_'), internacionId: 'i4', servicioSolicitanteId: 'Telemetría', modalidad: 'rm', descripcion: 'RM de rodilla', tipoTraslado: 'silla', regionAnatomica: 'Rodilla', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Dolor crónico', fechaSolicitud: minsAgo(2000) },
+  { id: uid('ped_'), internacionId: 'i6', servicioSolicitanteId: 'Clínica médica (7mo piso A)', modalidad: 'ecocardio', descripcion: 'Eco transtorácico', tipoTraslado: 'habitacion', regionAnatomica: 'Corazón', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Control', fechaSolicitud: minsAgo(2400) },
+  { id: uid('ped_'), internacionId: 'i7', servicioSolicitanteId: 'Recuperación cardiovascular', modalidad: 'tc', descripcion: 'AngioTC coronaria', tipoTraslado: 'camilla', regionAnatomica: 'Corazón', conContraste: true, prioridad: 'urgente', estado: 'cancelado', motivo: 'Dolor precordial', fechaSolicitud: minsAgo(2600) },
+  { id: uid('ped_'), internacionId: 'i9', servicioSolicitanteId: 'Guardia', modalidad: 'eco', descripcion: 'Eco de partes blandas', tipoTraslado: 'ambulatorio', regionAnatomica: 'Partes blandas', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Bultoma', fechaSolicitud: minsAgo(3000) },
+  { id: uid('ped_'), internacionId: 'i10', servicioSolicitanteId: 'Clínica médica (8vo piso B)', modalidad: 'rm', descripcion: 'RM de columna', tipoTraslado: 'camilla', regionAnatomica: 'Columna', conContraste: true, prioridad: 'normal', estado: 'realizado', motivo: 'Lumbalgia', fechaSolicitud: minsAgo(3200) },
+  { id: uid('ped_'), internacionId: 'i11', servicioSolicitanteId: 'Telemetría', modalidad: 'tc', descripcion: 'TC de abdomen', tipoTraslado: 'silla', regionAnatomica: 'Abdomen', conContraste: true, prioridad: 'normal', estado: 'cancelado', motivo: 'Estadificación', fechaSolicitud: minsAgo(3400) },
+  { id: uid('ped_'), internacionId: 'i1', servicioSolicitanteId: 'UCO', modalidad: 'ecocardio', descripcion: 'Eco transesofágico', tipoTraslado: 'camilla', regionAnatomica: 'Corazón', conContraste: false, prioridad: 'prioritario', estado: 'realizado', motivo: 'Endocarditis', fechaSolicitud: minsAgo(3600) },
+  { id: uid('ped_'), internacionId: 'i3', servicioSolicitanteId: 'Clínica médica (9no piso B)', modalidad: 'eco', descripcion: 'Eco pleural', tipoTraslado: 'habitacion', regionAnatomica: 'Tórax', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Derrame pleural', fechaSolicitud: minsAgo(4000) },
+  { id: uid('ped_'), internacionId: 'i4', servicioSolicitanteId: 'Telemetría', modalidad: 'mn', descripcion: 'Centellograma tiroideo', tipoTraslado: 'ambulatorio', regionAnatomica: 'Cuello', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Nódulo', fechaSolicitud: minsAgo(4200) },
 ];
 
-export const PEDIDOS_SEED: Pedido[] = RAW_PEDIDOS_SEED.map((p) => ({
+const rxPedidos: Omit<Pedido, 'historial'>[] = Array.from({ length: 28 }).map((_, i) => ({
+  id: uid('ped_rx_'),
+  internacionId: `i${(i % 11) + 1}`,
+  servicioSolicitanteId: 'UCO',
+  creadoPor: 'u1',
+  modalidad: 'rx',
+  descripcion: `Estudio radiológico ${i + 1}`,
+  tipoTraslado: 'habitacion',
+  regionAnatomica: 'Tórax',
+  conContraste: false,
+  prioridad: 'normal',
+  estado: i < 10 ? 'en_proceso' : 'realizado',
+  motivo: 'Control',
+  fechaSolicitud: minsAgo(i * 10),
+}));
+
+export const PEDIDOS_SEED: Pedido[] = [...RAW_PEDIDOS_SEED, ...rxPedidos].map((p) => ({
   ...p,
   historial: historialSeed(p) as any,
 }));
+

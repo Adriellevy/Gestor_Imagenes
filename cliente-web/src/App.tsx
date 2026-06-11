@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useStore } from "./store/useStore";
 import { ShieldAlert, ListChecks, AlertTriangle, Play, CheckCircle2, Search, Filter } from "lucide-react";
 import { typeMeta, hidratar, requiereAuth, alertaDemora } from "./utils/helpers";
@@ -21,6 +21,7 @@ export default function App() {
   const { 
     usuarios, currentUser, logout, login, cambiarEstadoPedido,
     pedidos, pacientes, internaciones, padron,
+    pedidosTerminados, terminadosHasMore, terminadosLoading, fetchNextPageTerminados,
     loading, fetchData, createPedido, updatePedido, createPaciente, createInternacion, resetData
   } = useStore();
 
@@ -36,6 +37,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("todos");
   const [serviceFilter, setServiceFilter] = useState("todos");
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const [modal, setModal] = useState(false);
   const [editStudy, setEditStudy] = useState<Pedido | null>(null);
@@ -84,9 +86,11 @@ export default function App() {
   const hasPermission = (perm: string) => Boolean(currentUser && (ROLES as any)[currentUser.rol]?.permisos.includes(perm));
   const perms = currentUser ? Object.fromEntries(((ROLES as any)[currentUser.rol]?.permisos || []).map((k: string) => [k, true])) : {};
 
+  const allPedidos = useMemo(() => [...pedidos, ...pedidosTerminados], [pedidos, pedidosTerminados]);
+
   const studies: Pedido[] = useMemo(() => {
-    return pedidos.map((p) => hidratar(p, internaciones, pacientes));
-  }, [pedidos, internaciones, pacientes]);
+    return allPedidos.map((p) => hidratar(p, internaciones, pacientes));
+  }, [allPedidos, internaciones, pacientes]);
 
   // Actions
   const conEvento = async (id: string, action: string) => {
@@ -212,8 +216,15 @@ export default function App() {
     .filter((s) => !scope || scope.includes(s.modalidad))
     .filter((s) => typeFilter === "todos" || s.modalidad === typeFilter)
     .filter((s) => serviceFilter === "todos" || s._servicio === serviceFilter)
+    .filter((s) => {
+      if (statusFilters.length === 0) return true;
+      let ok = true;
+      if (statusFilters.includes("habitacion") && s.tipoTraslado !== "habitacion") ok = false;
+      if (statusFilters.includes("autorizacion_pendiente") && s.estado !== "autorizacion_pendiente") ok = false;
+      return ok;
+    })
     .filter((s) => (showDone || !isClosed(s)) && s.estado !== "cancelado")
-    .sort(sortFn), [studies, typeFilter, serviceFilter, query, showDone, scope]);
+    .sort(sortFn), [studies, typeFilter, serviceFilter, statusFilters, query, showDone, scope]);
 
   const groups = useMemo(() => {
     let order = typeFilter === "todos" ? IMAGE_TYPES.map((t) => t.id) : [typeFilter];
@@ -282,7 +293,18 @@ export default function App() {
                     {SECTORES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <button onClick={() => setShowDone((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><Filter size={13} /> {showDone ? "Ocultar finalizados" : "Ver finalizados"}</button>
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                  <button onClick={() => setStatusFilters([])} className={`rounded-md px-2.5 py-1 text-xs font-medium ${statusFilters.length === 0 ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>Todos</button>
+                  <button onClick={() => setStatusFilters(p => p.includes("habitacion") ? p.filter(x => x !== "habitacion") : [...p, "habitacion"])} className={`rounded-md px-2.5 py-1 text-xs font-medium ${statusFilters.includes("habitacion") ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>En habitación</button>
+                  <button onClick={() => setStatusFilters(p => p.includes("autorizacion_pendiente") ? p.filter(x => x !== "autorizacion_pendiente") : [...p, "autorizacion_pendiente"])} className={`rounded-md px-2.5 py-1 text-xs font-medium ${statusFilters.includes("autorizacion_pendiente") ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}>Esperando autorización</button>
+                </div>
+                <button onClick={() => {
+                  setShowDone((v) => {
+                    const next = !v;
+                    if (next && pedidosTerminados.length === 0) fetchNextPageTerminados();
+                    return next;
+                  });
+                }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><Filter size={13} /> {showDone ? "Ocultar finalizados" : "Ver finalizados"}</button>
               </>
             ) : role === "clinical" && hasPermission("pedir_estudio") ? (
               <button onClick={() => { setEditStudy(null); setModal(true); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
@@ -300,33 +322,7 @@ export default function App() {
           groups.length === 0 ? <EmptyState text="No hay estudios que coincidan con el filtro." /> : (
             <div className="space-y-6">
               {groups.map((g) => (
-                <section key={g.type?.id}>
-                  <div className="mb-2.5 flex items-center gap-2">
-                    <span className={`grid h-7 w-7 place-items-center rounded-lg border ${g.type?.badge}`}>{g.type?.Icon && <g.type.Icon size={15} />}</span>
-                    <h3 className="text-sm font-semibold text-slate-700">{g.type?.label}</h3>
-                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">{g.items.length}</span>
-                  </div>
-                    {(() => {
-                      const rojos = g.items.filter((s) => alertaDemora(s, now) === "urgente").length;
-                      const prio  = g.items.filter((s) => alertaDemora(s, now) === "prioritario").length;
-                      if (!rojos && !prio) return null;
-                      return (
-                        <div className={`mb-2.5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium ${rojos ? "border-red-300 bg-red-50 text-red-700" : "border-amber-300 bg-amber-50 text-amber-700"}`}>
-                          <AlertTriangle size={14} />
-                          {rojos > 0 && <span>{rojos} código rojo sin atender (+30 min)</span>}
-                          {rojos > 0 && prio > 0 && <span aria-hidden>·</span>}
-                          {prio > 0 && <span>{prio} prioridad demorada (+2 h)</span>}
-                        </div>
-                      );
-                    })()}
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-                      {g.items.map((s) => (
-                      <div key={s.id} style={{ animation: "up .25s ease both" }}>
-                        <StudyCard study={s} patientStudies={studies.filter(x => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEdit={(st) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                <GroupSection key={g.type?.id} g={g} studies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} solicitarTraslado={solicitarTraslado} setEditStudy={setEditStudy} setModal={setModal} avisado={avisado} cancel={cancel} hasMore={terminadosHasMore} onLoadMore={fetchNextPageTerminados} />
               ))}
             </div>
           )
@@ -335,7 +331,10 @@ export default function App() {
             <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
             <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
             <ClinicalSection title="En proceso" items={myBy(["en_proceso"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
+              if (pedidosTerminados.length === 0) fetchNextPageTerminados();
+              else fetchNextPageTerminados();
+            }} />
             {myStudies.length === 0 && <EmptyState text={`${service} no tiene estudios cargados. Agregá el primero con "Nuevo estudio".`} />}
           </div>
         )}
@@ -362,5 +361,68 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+function GroupSection({
+  g, studies, usuarios, role, now, perms, currentUser,
+  advance, revert, authorize, solicitarTraslado, setEditStudy, setModal, avisado, cancel,
+  hasMore, onLoadMore
+}: any) {
+  const [visibleCount, setVisibleCount] = useState(9);
+  const observer = useRef<IntersectionObserver | null>(null);
+
+  const visibleItems = g.items.slice(0, visibleCount);
+
+  const handleLoadMore = useCallback(() => {
+    if (visibleCount < g.items.length) {
+      setVisibleCount((prev: number) => prev + 9);
+    } else if (hasMore && onLoadMore) {
+      onLoadMore();
+    }
+  }, [visibleCount, g.items.length, hasMore, onLoadMore]);
+
+  const lastElementRef = useCallback((node: HTMLDivElement | null) => {
+    if (observer.current) observer.current.disconnect();
+    if (node) {
+      observer.current = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      }, {
+        rootMargin: "100px"
+      });
+      observer.current.observe(node);
+    }
+  }, [handleLoadMore]);
+
+  const rojos = g.items.filter((s: any) => alertaDemora(s, now) === "urgente" && s.estado !== 'realizado').length;
+  const prio  = g.items.filter((s: any) => alertaDemora(s, now) === "prioritario" && s.estado !== 'realizado').length;
+
+  return (
+    <section>
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className={`grid h-7 w-7 place-items-center rounded-lg border ${g.type?.badge}`}>{g.type?.Icon && <g.type.Icon size={15} />}</span>
+        <h3 className="text-sm font-semibold text-slate-700">{g.type?.label}</h3>
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">{g.items.length}</span>
+      </div>
+      {(!rojos && !prio) ? null : (
+        <div className={`mb-2.5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium ${rojos ? "border-red-300 bg-red-50 text-red-700" : "border-amber-300 bg-amber-50 text-amber-700"}`}>
+          <AlertTriangle size={14} />
+          {rojos > 0 && <span>{rojos} código rojo sin atender (+30 min)</span>}
+          {rojos > 0 && prio > 0 && <span aria-hidden>·</span>}
+          {prio > 0 && <span>{prio} prioridad demorada (+2 h)</span>}
+        </div>
+      )}
+      <div className="max-h-[600px] overflow-y-auto pr-2 rounded-xl scroll-smooth">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          {visibleItems.map((s: any, idx: number) => (
+            <div key={s.id} ref={idx === visibleItems.length - 1 ? lastElementRef : null} style={{ animation: "up .25s ease both" }}>
+              <StudyCard study={s} patientStudies={studies.filter((x: any) => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEdit={(st: any) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

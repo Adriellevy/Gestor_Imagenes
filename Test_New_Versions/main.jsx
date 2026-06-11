@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './worklist-imagenes-v14.jsx'
+import App from './worklist-imagenes-v22.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(

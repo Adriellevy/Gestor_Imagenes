@@ -56,6 +56,11 @@ export const getPedidos = async (): Promise<Pedido[]> => {
   return data;
 };
 
+export const getPedidosTerminados = async (page: number = 1, limit: number = 6): Promise<{ data: Pedido[], total: number, page: number, limit: number }> => {
+  const { data } = await api.get(`/pedidos/terminados?page=${page}&limit=${limit}`);
+  return data;
+};
+
 export const createPedido = async (pedido: Omit<Pedido, 'id'>): Promise<Pedido> => {
   const { data } = await api.post('/pedidos', pedido);
   return data;

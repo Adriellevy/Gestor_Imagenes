@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { PedidosService } from './pedidos.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -9,6 +9,16 @@ export class PedidosController {
   @Get()
   findAll() {
     return this.pedidosService.findAll();
+  }
+
+  @Get('terminados')
+  findTerminados(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '6'
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 6;
+    return this.pedidosService.findTerminados(pageNum, limitNum);
   }
 
   @Post()

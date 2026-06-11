@@ -23,9 +23,15 @@ interface AppState {
   resetData: () => Promise<void>;
   login: (userId: string) => Promise<void>;
   logout: () => void;
+
+  pedidosTerminados: Pedido[];
+  terminadosPage: number;
+  terminadosHasMore: boolean;
+  terminadosLoading: boolean;
+  fetchNextPageTerminados: () => Promise<void>;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
   
@@ -35,6 +41,11 @@ export const useStore = create<AppState>((set) => ({
   pedidos: [],
   padron: [],
   
+  pedidosTerminados: [],
+  terminadosPage: 0,
+  terminadosHasMore: true,
+  terminadosLoading: false,
+
   loading: true,
   
   fetchData: async () => {
@@ -47,10 +58,30 @@ export const useStore = create<AppState>((set) => ({
         api.getPedidos(),
         api.getPadron()
       ]);
-      set({ usuarios, pacientes, internaciones, pedidos, padron, loading: false });
+      set({ usuarios, pacientes, internaciones, pedidos, padron, loading: false, pedidosTerminados: [], terminadosPage: 0, terminadosHasMore: true });
     } catch (error) {
       console.error('Error fetching data:', error);
       set({ loading: false });
+    }
+  },
+  
+  fetchNextPageTerminados: async () => {
+    const { terminadosPage, terminadosHasMore, terminadosLoading } = get();
+    if (!terminadosHasMore || terminadosLoading) return;
+    
+    set({ terminadosLoading: true });
+    try {
+      const nextPage = terminadosPage + 1;
+      const result = await api.getPedidosTerminados(nextPage, 6);
+      set((state) => ({
+        pedidosTerminados: [...state.pedidosTerminados, ...result.data],
+        terminadosPage: nextPage,
+        terminadosHasMore: result.data.length === 6,
+        terminadosLoading: false
+      }));
+    } catch (error) {
+      console.error('Error fetching terminados:', error);
+      set({ terminadosLoading: false });
     }
   },
   
@@ -128,7 +159,7 @@ export const useStore = create<AppState>((set) => ({
         api.getPedidos(),
         api.getPadron()
       ]);
-      set({ usuarios, pacientes, internaciones, pedidos, padron });
+      set({ usuarios, pacientes, internaciones, pedidos, padron, pedidosTerminados: [], terminadosPage: 0, terminadosHasMore: true });
     } catch (error) {
       console.error('Error resetting data:', error);
     }
