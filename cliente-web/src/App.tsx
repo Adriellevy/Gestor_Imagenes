@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useStore } from "./store/useStore";
 import { ShieldAlert, ListChecks, AlertTriangle, Play, CheckCircle2, Search, Filter } from "lucide-react";
 import { typeMeta, hidratar, requiereAuth, alertaDemora } from "./utils/helpers";
-import { IMAGE_TYPES, SECTORES, PRIORITIES, ROLES, TRASLADOS } from "./utils/constants";
+import { IMAGE_TYPES, SECTORES, PRIORITIES, ROLES, TRASLADOS, STATUS } from "./utils/constants";
 import { Kpi } from "./components/ui/Kpi";
 import { EmptyState } from "./components/ui/EmptyState";
 import { StudyCard } from "./components/studies/StudyCard";
@@ -100,9 +100,17 @@ export default function App() {
     let n = study.estado;
     
     if (action === "advance") {
-      n = n === "autorizacion_pendiente" ? "solicitado" :
-          n === "solicitado" || n === "traslado_solicitado" ? "en_proceso" :
-          n === "en_proceso" ? "realizado" : n;
+      if (n === "autorizacion_pendiente") {
+        n = "solicitado";
+      } else if (n === "solicitado" || n === "traslado_solicitado") {
+        n = "en_proceso";
+      } else if (n === "en_proceso") {
+        const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
+        const hermanos = studies.filter(x => x.id !== study.id && x.internacionId === study.internacionId && STATUS[x.estado]?.active);
+        n = (needsTransfer && hermanos.length === 0) ? "traslado_retorno" : "realizado";
+      } else if (n === "traslado_retorno") {
+        n = "realizado";
+      }
     } else if (action === "revert" && h.length > 1) {
       n = h[h.length - 2].estado;
     } else if (action === "authorize") n = "solicitado";
@@ -238,7 +246,7 @@ export default function App() {
   const kpis = useMemo(() => ({
     auth: studies.filter((s) => s.estado === "autorizacion_pendiente").length,
     pend: studies.filter((s) => s.estado === "solicitado").length,
-    proc: studies.filter((s) => s.estado === "en_proceso").length,
+    proc: studies.filter((s) => s.estado === "en_proceso" || s.estado === "traslado_retorno").length,
     urg:  studies.filter((s) => !isClosed(s) && s.estado !== "cancelado" && s.prioridad === "urgente").length,
     done: studies.filter((s) => isClosed(s)).length,
   }), [studies]);
@@ -330,7 +338,7 @@ export default function App() {
           <div className="space-y-6">
             <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
             <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="En proceso" items={myBy(["en_proceso"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
             <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
               if (pedidosTerminados.length === 0) fetchNextPageTerminados();
               else fetchNextPageTerminados();

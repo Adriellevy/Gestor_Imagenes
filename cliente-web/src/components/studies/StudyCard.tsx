@@ -46,8 +46,8 @@ export function StudyCard({
   const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
   const puedeGestionar = perms.cancelar_pedido && ESTADOS_PRE_TRASLADO.includes(study.estado) && (currentUser?.rol === "admin" || currentUser?.id === study.creadoPor);
   
-  const hermanosIda = patientStudies.filter(x => x.id !== study.id && x.estado === "solicitado" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
-  const hermanosVuelta = patientStudies.filter(x => x.id !== study.id && x.estado === "en_proceso" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
+  const hermanosIda = patientStudies.filter(x => x.id !== study.id && (x.estado === "solicitado" || x.estado === "traslado_solicitado") && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
+  const hermanosVuelta = patientStudies.filter(x => x.id !== study.id && (x.estado === "en_proceso" || x.estado === "traslado_retorno") && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
   const hermanos = patientStudies.filter(x => x.id !== study.id && STATUS[x.estado]?.active);
   
   const nextAction = () => {
@@ -56,7 +56,10 @@ export function StudyCard({
       ? { label: "Solicitar traslado", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", transfer: true, perm: "iniciar" }
       : { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "traslado_solicitado") return { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
-    if (study.estado === "en_proceso") return { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar", returnTransfer: needsTransfer && hermanos.length === 0 };
+    if (study.estado === "en_proceso") return needsTransfer && hermanos.length === 0
+      ? { label: "Solicitar regreso", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", returnTransfer: true, perm: "finalizar" }
+      : { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
+    if (study.estado === "traslado_retorno") return { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
     return null;
   };
   
@@ -79,6 +82,9 @@ export function StudyCard({
               )}
               {study.estado === "traslado_solicitado" && (
                 <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado solicitado</Badge>
+              )}
+              {study.estado === "traslado_retorno" && (
+                <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Retorno solicitado</Badge>
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500" style={{ fontFamily: FONT_MONO }}>
@@ -115,8 +121,8 @@ export function StudyCard({
               {perms.retroceder && st.active && study.estado !== "solicitado" && study.estado !== "autorizacion_pendiente" && (
                 <button onClick={() => onRevert(study.id)} title="Retroceder estado" className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"><RotateCcw size={13} /></button>
               )}
-              {study.estado === "traslado_solicitado" && puedeAccion && (
-                <a href={linkWhatsApp(study)} target="_blank" rel="noopener noreferrer" title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
+              {(study.estado === "traslado_solicitado" || study.estado === "traslado_retorno") && puedeAccion && (
+                <a href={linkWhatsApp(study, study.estado === "traslado_retorno" ? "vuelta" : "ida", study.estado === "traslado_retorno" ? hermanosVuelta : hermanosIda)} target="_blank" rel="noopener noreferrer" title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
               )}
               {na && puedeAccion && (
                 na.transfer ? (

@@ -27,6 +27,7 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
     solicitado:             { label: "PENDIENTE",   cls: "text-slate-100" },
     traslado_solicitado:    { label: "EN TRASLADO", cls: "text-cyan-300" },
     en_proceso:             { label: "EN PROCESO",  cls: "text-blue-300" },
+    traslado_retorno:       { label: "RETORNO SOLICITADO", cls: "text-cyan-300" },
   };
 
   const COLS = "1fr 2fr 1.6fr 2.2fr 0.9fr 1.2fr 0.9fr";
