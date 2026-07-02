@@ -46,11 +46,11 @@ export const PRIORITIES: Record<string, any> = {
 
 export const CASOS_CODIGO_ROJO = [
   { modalidad: "tc", dx: "TEP", estudio: "Angiotomografía de tórax (protocolo TEP)", conContraste: true },
-  { modalidad: "tc", dx: "Disección aórtica", estudio: "Angiotomografía de aorta", conContraste: true },
-  { modalidad: "tc", dx: "ACV", estudio: "Tomografía de encéfalo (sin contraste)", conContraste: false },
+  { modalidad: "tc", dx: "Síndrome aórtico", estudio: "Angiotomografía de aorta", conContraste: true },
   { modalidad: "tc", dx: "ACV", estudio: "Angiotomografía de encéfalo (vasos intra y extracraneanos)", conContraste: true },
   { modalidad: "rm", dx: "ACV", estudio: "RMN de encéfalo (protocolo stroke)", conContraste: false },
   { modalidad: "rx", dx: "Neumotórax", estudio: "Rx de tórax", conContraste: false, tipoTraslado: "habitacion" },
+  { modalidad: "ecocardio", dx: "Sospecha de taponamiento", estudio: "Ecocardiograma de urgencia (descartar taponamiento)", conContraste: false, tipoTraslado: "habitacion" },
 ];
 
 export const STATUS: Record<string, any> = {

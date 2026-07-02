@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, CheckCircle2, AlertTriangle, ShieldAlert, BedDouble, Stethoscope } from 'lucide-react';
+import { X, Search, CheckCircle2, AlertTriangle, ShieldAlert, BedDouble, Stethoscope, FileText, Upload } from 'lucide-react';
 import { SECTORES, CASOS_CODIGO_ROJO, IMAGE_TYPES, PRIORITIES, TRASLADOS } from '../../utils/constants';
 import { typeMeta, opcionesTraslado, requiereAuth } from '../../utils/helpers';
 import type { Pedido } from '../../types';
@@ -13,13 +13,14 @@ interface AddStudyModalProps {
   onUpdate: (id: string, data: any) => void;
   editStudy: Pedido | null;
   padron: any[]; // Se pasa PADRON_HOSPITAL u otro
+  areaRestringida?: string | null;
 }
 
 const today = (y: number, mo: number, d: number) => new Date(y, mo - 1, d).toISOString();
 
-export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, padron }: AddStudyModalProps) {
+export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, padron, areaRestringida = null }: AddStudyModalProps) {
   const blank = {
-    hc: "", modalidad: "rx", descripcion: "", prioridad: "normal", motivo: "", tipoTraslado: "silla", conContraste: false, casoRojo: "",
+    hc: "", modalidad: "rx", descripcion: "", prioridad: "normal", motivo: "", tipoTraslado: "silla", conContraste: false, aislamiento: false, ordenMedica: null as { nombre: string; tipo?: string; datos: string } | null, casoRojo: "", camaGuardia: "",
     manual: { apellido: "", nombre: "", dni: "", edad: "", servicio: SECTORES[0], cama: "" },
   };
   const [form, setForm] = useState(blank);
@@ -40,7 +41,10 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
         motivo: editStudy.motivo || "", 
         tipoTraslado: editStudy.tipoTraslado,
         conContraste: !!editStudy.conContraste, 
+        aislamiento: !!editStudy.aislamiento,
+        ordenMedica: editStudy.ordenMedica || null,
         casoRojo: idx >= 0 ? String(idx) : "",
+        camaGuardia: editStudy.camaGuardia || "",
         manual: { apellido: "", nombre: "", dni: "", edad: "", servicio: SECTORES[0], cama: "" },
       });
     } else { setForm(blank); }
@@ -56,6 +60,24 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
 
   if (!open) return null;
   const isEdit = !!editStudy;
+
+  const subirOrden = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      alert("El archivo supera los 4 MB. Subí una versión más liviana.");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setForm((f: any) => ({ ...f, ordenMedica: { nombre: file.name, tipo: file.type, datos: reader.result } }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  const quitarOrden = () => setForm((f: any) => ({ ...f, ordenMedica: null }));
 
   const set = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const setM = (k: string) => (e: any) => setForm((f: any) => ({ ...f, manual: { ...f.manual, [k]: e.target.value } }));
@@ -73,7 +95,7 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
   const resolved = isEdit && editStudy
     ? { hc: editStudy._paciente?.hc, apellido: editStudy._paciente?.nombreCompleto, servicio: editStudy._servicio, sector: editStudy._servicio, cama: editStudy._paciente?.cama }
     : found
-    ? { hc: found.hc, apellido: found.apellido, nombre: found.nombre, dni: found.dni, fechaNacimiento: found.fechaNacimiento, sexo: found.sexo, servicio: found.servicio, sector: found.sector, cama: found.cama }
+    ? { hc: found.hc, apellido: found.apellido, nombre: found.nombre, dni: found.dni, fechaNacimiento: found.fechaNacimiento, sexo: found.sexo, servicio: found.servicio, sector: found.sector, cama: found.servicio === "Guardia" ? (form.camaGuardia.trim() || "—") : found.cama }
     : noMatch
       ? { hc: form.hc.trim(), apellido: form.manual.apellido.trim(), nombre: form.manual.nombre.trim(), dni: form.manual.dni.trim() || "—",
           fechaNacimiento: form.manual.edad ? today(new Date().getFullYear() - Number(form.manual.edad), 1, 1) : today(1990, 1, 1),
@@ -81,7 +103,8 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
       : null;
 
   const edadDe = (fn: string) => { const d = new Date(fn), n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--; return a; };
-  const valid = resolved && resolved.apellido && form.descripcion.trim();
+  const fueraDeArea = !isEdit && areaRestringida && resolved && resolved.servicio !== areaRestringida;
+  const valid = resolved && resolved.apellido && form.descripcion.trim() && !fueraDeArea && !(found && found.servicio === "Guardia" && !form.camaGuardia.trim());
 
   const field = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
   const lbl = "mb-1 block text-xs font-medium text-slate-500";
@@ -123,6 +146,20 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
               <span className="inline-flex items-center gap-1"><BedDouble size={11} /> {found.cama}</span>
               <span className="inline-flex items-center gap-1"><Stethoscope size={11} /> {found.servicio}</span>
             </div>
+          </div>
+        )}
+
+        {found && found.servicio === "Guardia" && (
+          <div className="mb-4">
+            <label className={lbl}>Cama / Ubicación en guardia *</label>
+            <input className={field} value={form.camaGuardia} onChange={set("camaGuardia")} placeholder="Box, camilla o ubicación en guardia" />
+            <p className="mt-1 text-xs text-slate-400">En guardia la ubicación no llega desde el sistema; cargala a mano.</p>
+          </div>
+        )}
+
+        {fueraDeArea && (
+          <div className="mb-4 flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" /> El paciente está en {resolved?.servicio}, fuera de tu área actual ({areaRestringida}). Cambiá tu área en el encabezado para poder pedirle estudios.
           </div>
         )}
 
@@ -175,6 +212,24 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
                 <div className="col-span-2"><label className={lbl}>Estudio solicitado *</label><input className={field} value={form.descripcion} onChange={set("descripcion")} placeholder="Ej.: Rx de tórax (F y P)" /></div>
                 <div className="col-span-2"><label className={lbl}>Diagnóstico / pregunta clínica</label><textarea rows={2} className={field} value={form.motivo} onChange={set("motivo")} placeholder="Motivo del estudio" /></div>
                 <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={form.conContraste} onChange={set("conContraste")} className="h-4 w-4 rounded border-slate-300" /> Requiere contraste</label>
+                <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={form.aislamiento} onChange={set("aislamiento")} className="h-4 w-4 rounded border-slate-300" /> Paciente en aislamiento (requiere precauciones)</label>
+                {requiereAuth(form.modalidad) && form.prioridad !== "urgente" && (
+                  <div className="col-span-2">
+                    <label className={lbl}>Orden médica (PDF o Imagen)</label>
+                    {form.ordenMedica ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                        <FileText size={13} className="text-slate-400" /> <span className="flex-1 truncate">{form.ordenMedica.nombre}</span>
+                        <button type="button" onClick={quitarOrden} className="text-slate-400 hover:text-red-600"><X size={13} /></button>
+                      </div>
+                    ) : (
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 transition-colors hover:border-blue-400">
+                        <Upload size={13} /> Adjuntar orden médica (.pdf, imágenes)
+                        <input type="file" accept=".pdf,image/*" onChange={subirOrden} className="hidden" />
+                      </label>
+                    )}
+                    <p className="mt-1 text-xs text-slate-400">La descarga el administrativo para gestionar la autorización (opcional al cargar).</p>
+                  </div>
+                )}
               </>
             )}
             <div className="col-span-2">
@@ -190,8 +245,8 @@ export function AddStudyModal({ open, onClose, onSubmit, onUpdate, editStudy, pa
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
           <button disabled={!valid} onClick={() => isEdit && editStudy
-            ? onUpdate(editStudy.id, { modalidad: form.modalidad, descripcion: form.descripcion, prioridad: form.prioridad, motivo: form.motivo, tipoTraslado: form.tipoTraslado, conContraste: form.conContraste })
-            : onSubmit({ paciente: resolved, modalidad: form.modalidad, descripcion: form.descripcion, prioridad: form.prioridad, motivo: form.motivo, tipoTraslado: form.tipoTraslado, conContraste: form.conContraste })} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40">{isEdit ? "Guardar cambios" : "Agregar a la lista"}</button>
+            ? onUpdate(editStudy.id, { modalidad: form.modalidad, descripcion: form.descripcion, prioridad: form.prioridad, motivo: form.motivo, tipoTraslado: form.tipoTraslado, conContraste: form.conContraste, aislamiento: form.aislamiento, ordenMedica: form.ordenMedica, camaGuardia: form.camaGuardia })
+            : onSubmit({ paciente: resolved, modalidad: form.modalidad, descripcion: form.descripcion, prioridad: form.prioridad, motivo: form.motivo, tipoTraslado: form.tipoTraslado, conContraste: form.conContraste, aislamiento: form.aislamiento, ordenMedica: form.ordenMedica, camaGuardia: form.camaGuardia })} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40">{isEdit ? "Guardar cambios" : "Agregar a la lista"}</button>
         </div>
       </div>
     </div>

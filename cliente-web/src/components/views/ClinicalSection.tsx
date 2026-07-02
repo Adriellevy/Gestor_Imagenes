@@ -20,6 +20,7 @@ interface ClinicalSectionProps {
   onAvisado: (id: string) => void;
   cancel: (id: string) => void;
   solicitarTraslado?: (id: string) => void;
+  onEnOrigen?: (id: string) => void;
   horizontal?: boolean;
   hasMore?: boolean;
   loading?: boolean;
@@ -28,7 +29,7 @@ interface ClinicalSectionProps {
 
 export function ClinicalSection({ 
   usuarios, title, items, allStudies = [], role, now, perms, currentUser, 
-  advance, revert, authorize, onEdit, onAvisado, cancel, solicitarTraslado,
+  advance, revert, authorize, onEdit, onAvisado, cancel, solicitarTraslado, onEnOrigen,
   horizontal, hasMore, loading, onLoadMore
 }: ClinicalSectionProps) {
   const [visibleCount, setVisibleCount] = useState(9);
@@ -59,7 +60,7 @@ export function ClinicalSection({
       });
       observer.current.observe(node);
     }
-  }, [loading, handleLoadMore, horizontal]);
+  }, [horizontal, loading, handleLoadMore]);
 
   // Initial load request if empty (only for horizontal list used for finalizados)
   useEffect(() => {
@@ -70,12 +71,12 @@ export function ClinicalSection({
 
   if (!items.length && !loading) return null;
   return (
-    <section>
+    <section className={horizontal ? "w-full overflow-hidden" : ""}>
       <div className="mb-2.5 flex items-center gap-2">
         <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
         <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600" style={{ fontFamily: FONT_MONO }}>{items.length}</span>
       </div>
-      <div ref={scrollRef} className={horizontal ? "flex gap-3 overflow-x-auto pb-4 snap-x" : "grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3"}>
+      <div ref={horizontal ? scrollRef : null} className={horizontal ? "flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory no-scrollbar" : "grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3"}>
         {visibleItems.map((s, idx) => (
           <div key={s.id} ref={idx === visibleItems.length - 1 ? lastElementRef : null} style={{ animation: "up .25s ease both" }} className={horizontal ? "min-w-[320px] max-w-[400px] snap-start shrink-0" : ""}>
             <StudyCard 
@@ -93,6 +94,7 @@ export function ClinicalSection({
               onAvisado={onAvisado} 
               onCancel={cancel} 
               onTransfer={solicitarTraslado}
+              onEnOrigen={onEnOrigen}
             />
           </div>
         ))}

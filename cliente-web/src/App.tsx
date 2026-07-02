@@ -140,6 +140,22 @@ export default function App() {
   const solicitarTraslado = (id: string) => conEvento(id, "transfer");
   const cancel = (id: string) => conEvento(id, "cancel");
 
+  const hacerEnOrigen = (id: string) => {
+    const study = studies.find(s => s.id === id);
+    if (!study) return;
+    const estado = "solicitado";
+    const hist = study.historial || [];
+    const newHist = estado !== study.estado 
+      ? [...hist, { estado, ts: Date.now(), por: currentUser?.id || "u2" }] 
+      : hist;
+    updatePedido(id, { 
+      tipoTraslado: "habitacion", 
+      estado, 
+      avisoPendiente: study.estado === "traslado_solicitado" ? "sintraslado" : study.avisoPendiente,
+      historial: newHist 
+    });
+  };
+
   const avisado = (id: string) => updatePedido(id, { avisoPendiente: undefined });
 
   // Add & Update logic
@@ -168,7 +184,7 @@ export default function App() {
     
     await createPedido({
       internacionId: finalIid, servicioSolicitanteId: data.paciente.sector, creadoPor: currentUser?.id,
-      modalidad: data.modalidad, descripcion: data.descripcion.trim(), conContraste: data.conContraste, prioridad: data.prioridad,
+      modalidad: data.modalidad, descripcion: data.descripcion.trim(), conContraste: data.conContraste, aislamiento: data.aislamiento, ordenMedica: data.ordenMedica, camaGuardia: data.camaGuardia || "", prioridad: data.prioridad,
       motivo: data.motivo.trim(), tipoTraslado: data.tipoTraslado, regionAnatomica: "",
       estado: estadoIni, fechaSolicitud: ahora,
       historial: [{ estado: estadoIni, ts: ahora, por: currentUser?.id }]
@@ -194,6 +210,8 @@ export default function App() {
       ...d,
       descripcion: d.descripcion.trim(),
       motivo: d.motivo.trim(),
+      aislamiento: d.aislamiento,
+      ordenMedica: d.ordenMedica,
       estado,
       avisoPendiente,
       historial: hist
@@ -330,16 +348,16 @@ export default function App() {
           groups.length === 0 ? <EmptyState text="No hay estudios que coincidan con el filtro." /> : (
             <div className="space-y-6">
               {groups.map((g) => (
-                <GroupSection key={g.type?.id} g={g} studies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} solicitarTraslado={solicitarTraslado} setEditStudy={setEditStudy} setModal={setModal} avisado={avisado} cancel={cancel} hasMore={terminadosHasMore} onLoadMore={fetchNextPageTerminados} />
+                <GroupSection key={g.type?.id} g={g} studies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} setEditStudy={setEditStudy} setModal={setModal} avisado={avisado} cancel={cancel} hasMore={terminadosHasMore} onLoadMore={fetchNextPageTerminados} />
               ))}
             </div>
           )
         ) : (
           <div className="space-y-6">
-            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
+            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
+            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
               if (pedidosTerminados.length === 0) fetchNextPageTerminados();
               else fetchNextPageTerminados();
             }} />
@@ -348,7 +366,7 @@ export default function App() {
         )}
       </main>
 
-      <AddStudyModal open={modal} onClose={() => {setModal(false); setEditStudy(null)}} onSubmit={handleAddStudy} onUpdate={handleUpdateStudy} editStudy={editStudy} padron={padron} />
+      <AddStudyModal open={modal} onClose={() => {setModal(false); setEditStudy(null)}} onSubmit={handleAddStudy} onUpdate={handleUpdateStudy} editStudy={editStudy} padron={padron} areaRestringida={currentUser?.rol === "medico" ? service : null} />
       {pantalla && <BoardView studies={studies} now={now} onExit={() => setPantalla(false)} />}
       
       {sessionWarning && (
@@ -374,7 +392,7 @@ export default function App() {
 
 function GroupSection({
   g, studies, usuarios, role, now, perms, currentUser,
-  advance, revert, authorize, solicitarTraslado, setEditStudy, setModal, avisado, cancel,
+  advance, revert, authorize, solicitarTraslado, onEnOrigen, setEditStudy, setModal, avisado, cancel,
   hasMore, onLoadMore
 }: any) {
   const [visibleCount, setVisibleCount] = useState(9);
@@ -426,7 +444,7 @@ function GroupSection({
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {visibleItems.map((s: any, idx: number) => (
             <div key={s.id} ref={idx === visibleItems.length - 1 ? lastElementRef : null} style={{ animation: "up .25s ease both" }}>
-              <StudyCard study={s} patientStudies={studies.filter((x: any) => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEdit={(st: any) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
+              <StudyCard study={s} patientStudies={studies.filter((x: any) => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEnOrigen={onEnOrigen} onEdit={(st: any) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
             </div>
           ))}
         </div>

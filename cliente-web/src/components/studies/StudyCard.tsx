@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { 
   Clock, AlertTriangle, CheckCircle2, Play, X, 
-  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble, Layers 
+  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble, Layers, QrCode, FileText 
 } from "lucide-react";
 import { typeMeta, waitMins, waitText, linkWhatsApp, fmtHora } from '../../utils/helpers';
-import { PRIORITIES, STATUS, TRASLADOS, ESTADOS_PRE_TRASLADO, ROLES } from '../../utils/constants';
+import { PRIORITIES, STATUS, TRASLADOS, ESTADOS_PRE_TRASLADO, ROLES, MODALIDADES_PORTATIL } from '../../utils/constants';
 import { Badge } from '../ui/Badge';
+import { QrModal } from './QrModal';
 import type { Pedido, Usuario } from '../../types';
 
 const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
@@ -24,14 +25,16 @@ interface StudyCardProps {
   onTransfer?: (id: string) => void;
   onEdit?: (study: Pedido) => void;
   onAvisado?: (id: string) => void;
+  onEnOrigen?: (id: string) => void;
   onCancel: (id: string) => void;
 }
 
 export function StudyCard({ 
   study, patientStudies = [], usuarios, role, now, perms = {}, currentUser, 
-  onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onCancel 
+  onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onEnOrigen = () => {}, onCancel 
 }: StudyCardProps) {
   const [verHist, setVerHist] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const t = typeMeta(study.modalidad) || { short: study.modalidad, Icon: Stethoscope, badge: "bg-gray-50 text-gray-700" };
   const pr = PRIORITIES[study.prioridad] || PRIORITIES.normal;
   const st = STATUS[study.estado] || { label: study.estado, active: false, badge: "bg-gray-50 text-gray-500" };
@@ -99,6 +102,15 @@ export function StudyCard({
         <p className="mt-2 text-sm font-medium text-slate-800">{study.descripcion}</p>
         {study.motivo && <p className="mt-0.5 text-xs leading-snug text-slate-500">{study.motivo}</p>}
         <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500"><Truck size={12} className="text-slate-400" /> {TRASLADOS[study.tipoTraslado]?.label ?? "—"}{!needsTransfer && <span className="text-slate-400"> · sin traslado</span>}</p>
+        {study.ordenMedica ? (
+          <a href={study.ordenMedica.datos} download={study.ordenMedica.nombre} className="mt-1 ml-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><FileText size={12} /> Descargar orden médica</a>
+        ) : study.estado === "autorizacion_pendiente" ? (
+          <span className="mt-1 ml-2 inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle size={11} /> Sin orden médica adjunta</span>
+        ) : null}
+        {(study.tipoTraslado === "ambulatorio" || study.estado === "realizado") && (
+          <button onClick={() => setQrOpen(true)} className="mt-1 ml-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><QrCode size={12} /> QR para el paciente</button>
+        )}
+        {qrOpen && <QrModal study={study} onClose={() => setQrOpen(false)} />}
         {hermanos.length > 0 && (
           <p className={`mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium ${study.estado === "en_proceso" ? "bg-amber-50 text-amber-700" : "bg-violet-50 text-violet-700"}`}>
             <Layers size={11} /> {study.estado === "en_proceso"
@@ -137,6 +149,13 @@ export function StudyCard({
                   <button onClick={() => (na.authorize ? onAuthorize(study.id) : onAdvance(study.id))} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label}
                   </button>
+                )
+              )}
+              {MODALIDADES_PORTATIL.includes(study.modalidad) && needsTransfer && perms.iniciar && (study.estado === "solicitado" || study.estado === "traslado_solicitado") && (
+                study.estado === "traslado_solicitado" ? (
+                  <a href={linkWhatsApp(study, "sintraslado")} target="_blank" rel="noopener noreferrer" onClick={() => onEnOrigen?.(study.id)} title="Hacer en la cama del paciente (portátil, sin traslado) y avisar al ayudante" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><BedDouble size={12} /> Hacer en origen</a>
+                ) : (
+                  <button onClick={() => onEnOrigen?.(study.id)} title="Hacer en la cama del paciente (portátil, sin traslado)" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><BedDouble size={12} /> Hacer en origen</button>
                 )
               )}
               {na && !puedeAccion && study.estado === "autorizacion_pendiente" && (

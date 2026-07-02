@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { User, LogIn, Activity } from 'lucide-react';
+import { User, LogIn } from 'lucide-react';
 
 const FONT_SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
 
@@ -22,14 +22,14 @@ export function LoginScreen() {
     <div style={{ fontFamily: FONT_SANS }} className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-2xl border border-slate-200 bg-white p-10 shadow-xl">
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/30">
-            <Activity size={32} />
+          <div className="mx-auto flex justify-center mb-2">
+            <img src="/Logo Suma_Care.png" alt="Suma Care Logo" className="h-16 object-contain" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">
-            Gestoy
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900">
+            Suma Care
           </h2>
           <p className="mt-2 text-sm font-medium text-slate-500">
-            Módulo de Gestión de Imágenes
+            Módulo de Gestión de Imágenes · Internación y Guardia
           </p>
         </div>
 

@@ -1,4 +1,4 @@
-import { Hospital, Activity, Stethoscope, Users, BarChart3, Monitor, UserCircle, ChevronDown } from 'lucide-react';
+import { Activity, Stethoscope, Users, BarChart3, Monitor, UserCircle, ChevronDown } from 'lucide-react';
 import { SECTORES, ROLES } from '../../utils/constants';
 import type { Usuario } from '../../types';
 
@@ -22,13 +22,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-white">
-            <Hospital size={18} />
-          </span>
+        <div className="flex items-center gap-3">
+          <img src="/Logo Suma_Care.png" alt="Suma Care Logo" className="h-9 w-auto object-contain" />
+          <div className="h-7 w-px bg-slate-300"></div>
           <div className="leading-tight">
-            <div className="font-semibold">Imágenes</div>
-            <div className="text-xs text-slate-500">Circuito de estudios · Internación</div>
+            <div className="font-bold text-slate-900">Suma Care · Imágenes</div>
+            <div className="text-xs font-medium text-slate-500">Circuito de estudios e internación</div>
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">

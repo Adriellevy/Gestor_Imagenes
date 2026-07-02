@@ -27,34 +27,29 @@ export const opcionesTraslado = (modalidad: string, sector: string) => {
 };
 
 const NUMERO_TRASLADOS = "5491100000000";
-export function mensajeTraslado(study: any, tipo = "ida", hermanos?: any[]) {
+export function mensajeTraslado(study: any, tipo = "ida", hermanos: any[] = []) {
   const imagenes = typeMeta(study.modalidad)?.label ?? "Imágenes";
   const ubic = `${study._servicio} - ${study._paciente?.cama}`;
   const tr = TRASLADOS[study.tipoTraslado]?.label ?? "—";
   const paciente = `Paciente: ${study._paciente?.nombreCompleto} (HC ${study._paciente?.hc})`;
   const vuelta = tipo === "vuelta";
-  
-  let estText = `Estudio: ${study.descripcion}`;
-  if (hermanos && hermanos.length > 0) {
-    const todos = [study, ...hermanos];
-    estText = `Estudios (${todos.length}): ${todos.map(s => s.descripcion).join(", ")}`;
-  }
-  
   const lineas =
-    tipo === "cancel" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "Estudio suspendido."] :
-    tipo === "sintraslado" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "El estudio se realizará sin traslado."] :
-    tipo === "modif" ? ["TRASLADO MODIFICADO", paciente, `Ubicación: ${ubic}`, `Nuevo medio: ${tr}`] :
+    tipo === "cancel"      ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "Estudio suspendido."] :
+    tipo === "sintraslado" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "El estudio se realizará sin traslado (en cama/habitación)."] :
+    tipo === "modif"       ? ["TRASLADO MODIFICADO", paciente, `Ubicación: ${ubic}`, `Nuevo medio: ${tr}`] :
     [
       vuelta ? "Solicitud de traslado (regreso a origen)" : "Solicitud de traslado",
       paciente,
+      ...(study.aislamiento ? ["AISLAMIENTO: requiere precauciones (traer EPP)."] : []),
       ...(vuelta ? [`Desde: ${imagenes}`, `Hacia: ${ubic}`] : [`Origen: ${ubic}`, `Destino: ${imagenes}`]),
       `Traslado: ${tr}`,
-      estText + (vuelta ? " (finalizados)" : ""),
+      `Estudio: ${study.descripcion}${vuelta ? " (finalizado)" : ""}`,
+      ...(!vuelta && hermanos && hermanos.length ? [`Otros estudios del paciente: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
       `Prioridad: ${PRIORITIES[study.prioridad]?.label}`,
     ];
   return lineas.join("\n");
 }
-export const linkWhatsApp = (study: any, tipo = "ida", hermanos?: any[]) => `https://wa.me/${NUMERO_TRASLADOS}?text=${encodeURIComponent(mensajeTraslado(study, tipo, hermanos))}`;
+export const linkWhatsApp = (study: any, tipo = "ida", hermanos: any[] = []) => `https://wa.me/${NUMERO_TRASLADOS}?text=${encodeURIComponent(mensajeTraslado(study, tipo, hermanos))}`;
 
 export const fmtHora = (ts: number) => new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 

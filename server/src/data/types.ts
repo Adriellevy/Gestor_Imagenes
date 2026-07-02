@@ -44,4 +44,12 @@ export interface Pedido {
   fechaSolicitud: number;
   historial?: any[];
   avisoPendiente?: string;
+  aislamiento?: boolean;
+  ordenMedica?: {
+    nombre: string;
+    datos: string;
+    tipo?: string;
+  } | null;
+  casoRojo?: string;
+  camaGuardia?: string;
 }

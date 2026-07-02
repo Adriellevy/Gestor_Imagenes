@@ -33,6 +33,7 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
   const COLS = "1fr 2fr 1.6fr 2.2fr 0.9fr 1.2fr 0.9fr";
   const activos = studies
     .filter((s) => STATUS[s.estado]?.active && (filtro === "todos" || s.modalidad === filtro))
+    .filter((s) => s.tipoTraslado !== "habitacion")
     .sort((a, b) => (PRIORITIES[a.prioridad]?.rank - PRIORITIES[b.prioridad]?.rank) || (a.fechaSolicitud - b.fechaSolicitud));
     
   const rojos = activos.filter((s) => s.prioridad === "urgente").length;
@@ -40,10 +41,12 @@ export function BoardView({ studies, now, onExit }: BoardViewProps) {
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-slate-100" style={{ fontFamily: FONT_SANS, zIndex: 60 }}>
       <div className="flex items-center justify-between border-b border-slate-800 px-8 py-4">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-slate-900"><Hospital size={22} /></span>
+        <div className="flex items-center gap-4">
+          <div className="flex h-11 items-center rounded-lg bg-white px-2.5 py-1 shadow">
+            <img src="/Logo Suma_Care.png" alt="Suma Care" className="h-full w-auto object-contain" />
+          </div>
           <div>
-            <div className="text-2xl font-bold tracking-tight">Imágenes — Cola de estudios</div>
+            <div className="text-2xl font-bold tracking-tight">Suma Care — Cola de estudios</div>
             <div className="text-sm text-slate-400">{activos.length} en cola{rojos > 0 ? ` · ${rojos} código rojo` : ""}</div>
           </div>
         </div>
