@@ -16,7 +16,7 @@ export class PacientesController {
     return this.pacientesService.findAll();
   }
   @Post()
-  create(@Body() paciente: Paciente): Paciente {
+  create(@Body() paciente: Paciente) {
     return this.pacientesService.create(paciente);
   }
 }

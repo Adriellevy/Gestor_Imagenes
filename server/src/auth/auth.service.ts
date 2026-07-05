@@ -10,7 +10,8 @@ export class AuthService {
   ) {}
 
   async login(userId: string) {
-    const user = this.usuariosService.findAll().find(u => u.id === userId);
+    const usuarios = await this.usuariosService.findAll();
+    const user = usuarios.find(u => u.id === userId);
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }

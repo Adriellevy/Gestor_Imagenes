@@ -19,10 +19,10 @@ export class AppController {
   }
 
   @Post('reset')
-  resetData() {
-    this.pacientesService.reset();
-    this.internacionesService.reset();
-    this.pedidosService.reset();
+  async resetData() {
+    await this.pedidosService.reset();
+    await this.internacionesService.reset();
+    await this.pacientesService.reset();
     return { success: true };
   }
 }

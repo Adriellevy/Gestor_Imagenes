@@ -12,7 +12,7 @@ export class InternacionesController {
   }
 
   @Post()
-  create(@Body() internacion: Internacion): Internacion {
+  create(@Body() internacion: Internacion) {
     return this.internacionesService.create(internacion);
   }
 }
