@@ -21,6 +21,8 @@ interface ClinicalSectionProps {
   cancel: (id: string) => void;
   solicitarTraslado?: (id: string) => void;
   onEnOrigen?: (id: string) => void;
+  onMarcarVista?: (id: string) => void;
+  onActualizarCama?: (study: Pedido, cama: string, sector?: string) => void;
   horizontal?: boolean;
   hasMore?: boolean;
   loading?: boolean;
@@ -30,6 +32,7 @@ interface ClinicalSectionProps {
 export function ClinicalSection({ 
   usuarios, title, items, allStudies = [], role, now, perms, currentUser, 
   advance, revert, authorize, onEdit, onAvisado, cancel, solicitarTraslado, onEnOrigen,
+  onMarcarVista, onActualizarCama,
   horizontal, hasMore, loading, onLoadMore
 }: ClinicalSectionProps) {
   const [visibleCount, setVisibleCount] = useState(9);
@@ -95,6 +98,8 @@ export function ClinicalSection({
               onCancel={cancel} 
               onTransfer={solicitarTraslado}
               onEnOrigen={onEnOrigen}
+              onMarcarVista={onMarcarVista}
+              onActualizarCama={onActualizarCama}
             />
           </div>
         ))}

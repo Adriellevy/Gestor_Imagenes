@@ -71,4 +71,7 @@ export class Pedido {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   camaGuardia?: string;
+
+  @Column({ type: 'simple-json', nullable: true })
+  emergenciaVista?: { ts: number; por: string } | null;
 }

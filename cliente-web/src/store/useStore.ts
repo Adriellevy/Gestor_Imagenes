@@ -18,6 +18,8 @@ interface AppState {
   createPedido: (pedido: Omit<Pedido, 'id'>) => Promise<void>;
   updatePedido: (id: string, updates: Partial<Pedido>) => Promise<void>;
   cambiarEstadoPedido: (id: string, estado: string, userId: string) => Promise<void>;
+  cambiarEmergenciaVista: (id: string) => Promise<void>;
+  updateUbicacionInternacion: (internacionId: string, cama: string, sector?: string) => Promise<void>;
   createPaciente: (paciente: Omit<Paciente, 'id'> | Paciente) => Promise<void>;
   createInternacion: (internacion: Omit<Internacion, 'id'> | Internacion) => Promise<void>;
   resetData: () => Promise<void>;
@@ -149,6 +151,40 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   
+  cambiarEmergenciaVista: async (id) => {
+    const { currentUser, pedidos } = get();
+    if (!currentUser) return;
+    try {
+      set({
+        pedidos: pedidos.map((p) =>
+          p.id === id ? { ...p, emergenciaVista: { ts: Date.now(), por: currentUser.id } } : p
+        ),
+      });
+      const updatedPedido = await api.acuseReciboEmergencia(id, currentUser.id);
+      set((state) => ({
+        pedidos: state.pedidos.map((p) => (p.id === id ? updatedPedido : p)),
+      }));
+    } catch (error) {
+      console.error('Error changing emergenciaVista:', error);
+    }
+  },
+
+  updateUbicacionInternacion: async (internacionId, cama, sector) => {
+    try {
+      set((state) => ({
+        internaciones: state.internaciones.map((i) =>
+          i.id === internacionId ? { ...i, ubicacion: { ...i.ubicacion, cama, ...(sector ? { sector } : {}) } } : i
+        ),
+      }));
+      const updatedInternacion = await api.updateUbicacionInternacion(internacionId, cama, sector);
+      set((state) => ({
+        internaciones: state.internaciones.map((i) => (i.id === internacionId ? updatedInternacion : i)),
+      }));
+    } catch (error) {
+      console.error('Error updating ubicacion internacion:', error);
+    }
+  },
+
   resetData: async () => {
     try {
       await api.resetData();

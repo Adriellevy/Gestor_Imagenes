@@ -55,6 +55,14 @@ export class PedidosService {
     return this.pedidosRepository.save(pedido);
   }
 
+  async acuseReciboEmergencia(id: string, userId: string): Promise<Pedido | null> {
+    const pedido = await this.pedidosRepository.findOneBy({ id });
+    if (!pedido || pedido.prioridad !== 'urgente') return null;
+
+    pedido.emergenciaVista = { ts: Date.now(), por: userId };
+    return this.pedidosRepository.save(pedido);
+  }
+
   async reset(): Promise<void> {
     await this.pedidosRepository.createQueryBuilder().delete().execute();
     await this.pedidosRepository.save(PEDIDOS_SEED as Pedido[]);

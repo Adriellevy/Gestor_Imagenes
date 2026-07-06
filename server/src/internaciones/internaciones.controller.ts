@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { InternacionesService } from './internaciones.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { Internacion } from '../data/types';
 
 @Controller('internaciones')
@@ -14,5 +15,15 @@ export class InternacionesController {
   @Post()
   create(@Body() internacion: Internacion) {
     return this.internacionesService.create(internacion);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/ubicacion')
+  updateUbicacion(
+    @Param('id') id: string,
+    @Body('cama') cama: string,
+    @Body('sector') sector?: string,
+  ) {
+    return this.internacionesService.updateUbicacion(id, cama, sector);
   }
 }

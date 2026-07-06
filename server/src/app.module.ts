@@ -8,6 +8,7 @@ import { PacientesModule } from './pacientes/pacientes.module';
 import { InternacionesModule } from './internaciones/internaciones.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { AuthModule } from './auth/auth.module';
+import { SeederModule } from './data/seeder.module';
 import { Usuario } from './usuarios/entities/usuario.entity';
 import { Paciente } from './pacientes/entities/paciente.entity';
 import { Internacion } from './internaciones/entities/internacion.entity';
@@ -34,6 +35,7 @@ import { Pedido } from './pedidos/entities/pedido.entity';
     PacientesModule,
     InternacionesModule,
     PedidosModule,
+    SeederModule,
   ],
   controllers: [AppController],
   providers: [AppService],

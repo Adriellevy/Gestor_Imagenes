@@ -27,14 +27,19 @@ interface StudyCardProps {
   onAvisado?: (id: string) => void;
   onEnOrigen?: (id: string) => void;
   onCancel: (id: string) => void;
+  onMarcarVista?: (id: string) => void;
+  onActualizarCama?: (study: Pedido, cama: string, sector?: string) => void;
 }
 
 export function StudyCard({ 
   study, patientStudies = [], usuarios, role, now, perms = {}, currentUser, 
-  onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onEnOrigen = () => {}, onCancel 
+  onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onEnOrigen = () => {}, onCancel,
+  onMarcarVista = () => {}, onActualizarCama = () => {}
 }: StudyCardProps) {
   const [verHist, setVerHist] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [editingCama, setEditingCama] = useState(false);
+  const [newCama, setNewCama] = useState(study._paciente?.cama || "");
   const t = typeMeta(study.modalidad) || { short: study.modalidad, Icon: Stethoscope, badge: "bg-gray-50 text-gray-700" };
   const pr = PRIORITIES[study.prioridad] || PRIORITIES.normal;
   const st = STATUS[study.estado] || { label: study.estado, active: false, badge: "bg-gray-50 text-gray-500" };
@@ -80,6 +85,15 @@ export function StudyCard({
               {study.prioridad !== "normal" && (
                 <Badge className={pr.badge}>{study.prioridad === "urgente" && <AlertTriangle size={11} />} {pr.short ?? pr.label}</Badge>
               )}
+              {study.prioridad === "urgente" && !study.emergenciaVista && !closed && (
+                <button
+                  onClick={() => onMarcarVista(study.id)}
+                  className="inline-flex animate-pulse items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 hover:bg-red-700"
+                  title="Detener alarma y acusar recibo de código rojo"
+                >
+                  <AlertTriangle size={11} /> VISTO
+                </button>
+              )}
               {study.estado === "autorizacion_pendiente" && (
                 <Badge className="bg-orange-100 text-orange-700 border-orange-200"><ShieldAlert size={11} /> Autorización</Badge>
               )}
@@ -93,7 +107,46 @@ export function StudyCard({
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500" style={{ fontFamily: FONT_MONO }}>
               <span>HC {p.hc}</span><span>DNI {p.dni}</span><span>{p.edad} años</span>
               {p.obraSocial && <span className="font-semibold text-blue-600 font-sans">{p.obraSocial}</span>}
-              <span className="inline-flex items-center gap-1 font-sans"><BedDouble size={12} /> {p.cama}</span>
+              <span className="inline-flex items-center gap-1 font-sans">
+                <BedDouble size={12} />
+                {editingCama ? (
+                  <span className="inline-flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={newCama}
+                      onChange={(e) => setNewCama(e.target.value)}
+                      className="w-16 rounded border border-blue-400 px-1 py-0 text-xs text-slate-800 outline-none"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        onActualizarCama(study, newCama);
+                        setEditingCama(false);
+                      }}
+                      className="rounded bg-blue-600 px-1.5 py-0 text-xs font-medium text-white hover:bg-blue-700"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => setEditingCama(false)}
+                      className="rounded bg-slate-200 px-1.5 py-0 text-xs font-medium text-slate-600 hover:bg-slate-300"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ) : (
+                  <span
+                    onClick={() => {
+                      setNewCama(p.cama);
+                      setEditingCama(true);
+                    }}
+                    className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-blue-600"
+                    title="Clic para editar cama en caliente"
+                  >
+                    {p.cama}
+                  </span>
+                )}
+              </span>
             </div>
           </div>
           <Badge className={`${t.badge} shrink-0`}><t.Icon size={12} /> {t.short}</Badge>

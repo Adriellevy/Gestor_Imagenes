@@ -63,6 +63,7 @@ export interface Pedido {
   } | null;
   casoRojo?: string;
   camaGuardia?: string;
+  emergenciaVista?: { ts: number; por: string } | null;
   // Propiedades hidratadas por el store
   _paciente?: {
     nombreCompleto: string;
@@ -72,6 +73,7 @@ export interface Pedido {
     edad: number | string;
     cama: string;
     obraSocial?: string;
+    fechaNacimiento?: string | null;
   };
   _servicio?: string;
 }

@@ -52,4 +52,5 @@ export interface Pedido {
   } | null;
   casoRojo?: string;
   camaGuardia?: string;
+  emergenciaVista?: { ts: number; por: string } | null;
 }

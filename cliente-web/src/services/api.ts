@@ -76,6 +76,20 @@ export const cambiarEstadoPedido = async (id: string, estado: string, userId: st
   return data;
 };
 
+export const acuseReciboEmergencia = async (id: string, userId: string): Promise<Pedido> => {
+  const { data } = await api.patch(`/pedidos/${id}/vista`, { userId });
+  return data;
+};
+
+export const updateUbicacionInternacion = async (
+  internacionId: string,
+  cama: string,
+  sector?: string
+): Promise<Internacion> => {
+  const { data } = await api.patch(`/internaciones/${internacionId}/ubicacion`, { cama, sector });
+  return data;
+};
+
 export const resetData = async (): Promise<void> => {
   await api.post('/reset');
 };
