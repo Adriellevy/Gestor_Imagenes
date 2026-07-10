@@ -1,5 +1,6 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryColumn } from 'typeorm';
 import { Internacion } from '../../internaciones/entities/internacion.entity';
+import { EstudioSolicitado } from './estudio-solicitado.entity';
 
 const tsTransformer = {
   to: (value?: number | null) => value,
@@ -24,11 +25,8 @@ export class Pedido {
   @Column({ type: 'varchar', length: 50, nullable: true })
   creadoPor?: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  modalidad: string;
-
-  @Column({ type: 'text' })
-  descripcion: string;
+  @OneToOne(() => EstudioSolicitado, (e) => e.pedido)
+  estudioSolicitado?: EstudioSolicitado;
 
   @Column({ type: 'varchar', length: 50 })
   tipoTraslado: string;

@@ -27,13 +27,23 @@ export interface Usuario {
   sectores?: string[];
 }
 
+export interface TipoEstudio {
+  id?: number;
+  codigo: string;
+  tipo: string;
+}
+
+export interface EstudioSolicitadoSeed {
+  pedidoId: string;
+  codigo: string;
+  descripcion: string;
+}
+
 export interface Pedido {
   id: string;
   internacionId: string;
   servicioSolicitanteId: string;
   creadoPor?: string;
-  modalidad: string;
-  descripcion: string;
   tipoTraslado: string;
   regionAnatomica: string;
   lateralidad?: string;

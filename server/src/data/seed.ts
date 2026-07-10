@@ -1,8 +1,17 @@
-import { Paciente, Internacion, Usuario, Pedido } from './types';
+import { Paciente, Internacion, Usuario, Pedido, TipoEstudio, EstudioSolicitadoSeed } from './types';
 
 const minsAgo = (m: number) => Date.now() - m * 60000;
 const uid = (p = '') => p + Math.random().toString(36).slice(2, 9);
 const today = (y: number, mo: number, d: number) => new Date(y, mo - 1, d).toISOString();
+
+export const TIPOS_ESTUDIO_SEED: TipoEstudio[] = [
+  { codigo: 'tc', tipo: 'IMG' },
+  { codigo: 'rm', tipo: 'IMG' },
+  { codigo: 'mn', tipo: 'IMG' },
+  { codigo: 'rx', tipo: 'IMG' },
+  { codigo: 'eco', tipo: 'IMG' },
+  { codigo: 'ecocardio', tipo: 'IMG' },
+];
 
 export const USUARIOS: Usuario[] = [
   { id: 'u1', nombre: 'Dra. Acosta', rol: 'medico', servicio: 'Clínica médica (7mo piso A)' },
@@ -76,7 +85,7 @@ const TRASLADOS_REQUIERE: Record<string, boolean> = {
   ambulatorio: false,
 };
 
-function historialSeed(p: Partial<Pedido>) {
+function historialSeed(p: Partial<Pedido> & { modalidad?: string }) {
   const requiereT = p.tipoTraslado && TRASLADOS_REQUIERE[p.tipoTraslado];
   const arrancaAuth = p.modalidad && REQUIERE_AUTH[p.modalidad] && p.prioridad !== "urgente";
   const SEC_ESTADO = ["autorizacion_pendiente", "solicitado", "traslado_solicitado", "en_proceso", "realizado"];
@@ -92,7 +101,9 @@ function historialSeed(p: Partial<Pedido>) {
   return camino.map((e, i) => ({ estado: e, ts: (p.fechaSolicitud || 0) + i * 5 * 60000, por: actor[e as string] ?? null }));
 }
 
-const RAW_PEDIDOS_SEED: Omit<Pedido, 'historial'>[] = [
+type RawPedidoSeed = Omit<Pedido, 'historial'> & { modalidad: string; descripcion: string };
+
+const RAW_PEDIDOS_SEED: RawPedidoSeed[] = [
   { id: uid('ped_'), internacionId: 'i1', servicioSolicitanteId: 'UCO', creadoPor: 'u2', modalidad: 'tc', descripcion: 'Angiotomografía de encéfalo (vasos intra y extracraneanos)', tipoTraslado: 'camilla', regionAnatomica: 'Encéfalo', conContraste: true, prioridad: 'urgente', estado: 'solicitado', motivo: 'ACV', fechaSolicitud: minsAgo(54), emergenciaVista: null },
   { id: uid('ped_'), internacionId: 'i4', servicioSolicitanteId: 'Telemetría', modalidad: 'ecocardio', descripcion: 'Ecocardiograma transtorácico', tipoTraslado: 'habitacion', regionAnatomica: 'Corazón', conContraste: false, prioridad: 'prioritario', estado: 'solicitado', motivo: 'Disnea de esfuerzo, evaluar FEVI.', fechaSolicitud: minsAgo(71) },
   { id: uid('ped_'), internacionId: 'i5', servicioSolicitanteId: 'Clínica médica (8vo piso A)', modalidad: 'rm', descripcion: 'RM de cerebro c/ y s/ contraste', tipoTraslado: 'camilla', regionAnatomica: 'Cerebro', conContraste: true, prioridad: 'prioritario', estado: 'autorizacion_pendiente', motivo: 'Cefalea persistente con foco neurológico.', fechaSolicitud: minsAgo(95) },
@@ -114,7 +125,7 @@ const RAW_PEDIDOS_SEED: Omit<Pedido, 'historial'>[] = [
   { id: uid('ped_'), internacionId: 'i4', servicioSolicitanteId: 'Telemetría', modalidad: 'mn', descripcion: 'Centellograma tiroideo', tipoTraslado: 'ambulatorio', regionAnatomica: 'Cuello', conContraste: false, prioridad: 'normal', estado: 'realizado', motivo: 'Nódulo', fechaSolicitud: minsAgo(4200) },
 ];
 
-const rxPedidos: Omit<Pedido, 'historial'>[] = Array.from({ length: 28 }).map((_, i) => ({
+const rxPedidos: RawPedidoSeed[] = Array.from({ length: 28 }).map((_, i) => ({
   id: uid('ped_rx_'),
   internacionId: `i${(i % 11) + 1}`,
   servicioSolicitanteId: 'UCO',
@@ -130,8 +141,19 @@ const rxPedidos: Omit<Pedido, 'historial'>[] = Array.from({ length: 28 }).map((_
   fechaSolicitud: minsAgo(i * 10),
 }));
 
-export const PEDIDOS_SEED: Pedido[] = [...RAW_PEDIDOS_SEED, ...rxPedidos].map((p) => ({
-  ...p,
-  historial: historialSeed(p) as any,
+const TODOS_PEDIDOS_RAW: RawPedidoSeed[] = [...RAW_PEDIDOS_SEED, ...rxPedidos];
+
+export const ESTUDIOS_SOLICITADOS_SEED: EstudioSolicitadoSeed[] = TODOS_PEDIDOS_RAW.map((p) => ({
+  pedidoId: p.id,
+  codigo: p.modalidad,
+  descripcion: p.descripcion,
 }));
+
+export const PEDIDOS_SEED: Pedido[] = TODOS_PEDIDOS_RAW.map((p) => {
+  const { modalidad, descripcion, ...pedido } = p;
+  return {
+    ...pedido,
+    historial: historialSeed(p) as any,
+  };
+});
 
