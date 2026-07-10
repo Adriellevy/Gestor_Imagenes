@@ -9,6 +9,8 @@ import { Badge } from '../ui/Badge';
 import { QrModal } from './QrModal';
 import type { Pedido, Usuario } from '../../types';
 
+import { logWhatsAppAttempt } from '../../services/firebaseControl';
+
 const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
 
 interface StudyCardProps {
@@ -187,15 +189,15 @@ export function StudyCard({
                 <button onClick={() => onRevert(study.id)} title="Retroceder estado" className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"><RotateCcw size={13} /></button>
               )}
               {(study.estado === "traslado_solicitado" || study.estado === "traslado_retorno") && puedeAccion && (
-                <a href={linkWhatsApp(study, study.estado === "traslado_retorno" ? "vuelta" : "ida", study.estado === "traslado_retorno" ? hermanosVuelta : hermanosIda)} target="_blank" rel="noopener noreferrer" title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
+                <a href={linkWhatsApp(study, study.estado === "traslado_retorno" ? "vuelta" : "ida", study.estado === "traslado_retorno" ? hermanosVuelta : hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => logWhatsAppAttempt({ tipo: study.estado === "traslado_retorno" ? "vuelta" : "ida", studyId: study.id, usuario: currentUser?.nombre })} title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
               )}
               {na && puedeAccion && (
                 na.transfer ? (
-                  <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => { onTransfer(study.id); hermanosIda.forEach(h => onTransfer(h.id)); }} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                  <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => { logWhatsAppAttempt({ tipo: "ida", studyId: study.id, usuario: currentUser?.nombre }); onTransfer(study.id); hermanosIda.forEach(h => onTransfer(h.id)); }} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label} {hermanosIda.length > 0 && `(${hermanosIda.length + 1})`}
                   </a>
                 ) : na.returnTransfer ? (
-                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado de regreso" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { logWhatsAppAttempt({ tipo: "vuelta", studyId: study.id, usuario: currentUser?.nombre }); onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado de regreso" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label} {hermanosVuelta.length > 0 && `(${hermanosVuelta.length + 1})`}
                   </a>
                 ) : (
@@ -206,7 +208,7 @@ export function StudyCard({
               )}
               {MODALIDADES_PORTATIL.includes(study.modalidad) && needsTransfer && perms.iniciar && (study.estado === "solicitado" || study.estado === "traslado_solicitado") && (
                 study.estado === "traslado_solicitado" ? (
-                  <a href={linkWhatsApp(study, "sintraslado")} target="_blank" rel="noopener noreferrer" onClick={() => onEnOrigen?.(study.id)} title="Hacer en la cama del paciente (portátil, sin traslado) y avisar al ayudante" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><BedDouble size={12} /> Hacer en origen</a>
+                  <a href={linkWhatsApp(study, "sintraslado")} target="_blank" rel="noopener noreferrer" onClick={() => { logWhatsAppAttempt({ tipo: "sintraslado", studyId: study.id, usuario: currentUser?.nombre }); onEnOrigen?.(study.id); }} title="Hacer en la cama del paciente (portátil, sin traslado) y avisar al ayudante" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><BedDouble size={12} /> Hacer en origen</a>
                 ) : (
                   <button onClick={() => onEnOrigen?.(study.id)} title="Hacer en la cama del paciente (portátil, sin traslado)" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><BedDouble size={12} /> Hacer en origen</button>
                 )
@@ -225,14 +227,14 @@ export function StudyCard({
                 <>
                   <button onClick={() => onEdit(study)} title="Editar pedido" className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"><Pencil size={13} /></button>
                   {study.estado === "traslado_solicitado" ? (
-                    <a href={linkWhatsApp(study, "cancel")} target="_blank" rel="noopener noreferrer" onClick={() => onCancel(study.id)} title="Cancelar y avisar al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-red-200 text-red-500 transition-colors hover:bg-red-50"><X size={13} /></a>
+                    <a href={linkWhatsApp(study, "cancel")} target="_blank" rel="noopener noreferrer" onClick={() => { logWhatsAppAttempt({ tipo: "cancel", studyId: study.id, usuario: currentUser?.nombre }); onCancel(study.id); }} title="Cancelar y avisar al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-red-200 text-red-500 transition-colors hover:bg-red-50"><X size={13} /></a>
                   ) : (
                     <button onClick={() => onCancel(study.id)} title="Cancelar pedido" className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"><X size={13} /></button>
                   )}
                 </>
               )}
               {study.avisoPendiente && (
-                <a href={linkWhatsApp(study, study.avisoPendiente)} target="_blank" rel="noopener noreferrer" onClick={() => onAvisado(study.id)} title="Avisar al ayudante" className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"><MessageCircle size={12} /> {study.avisoPendiente === "modif" ? "Avisar cambio" : "Avisar cancelación"}</a>
+                <a href={linkWhatsApp(study, study.avisoPendiente)} target="_blank" rel="noopener noreferrer" onClick={() => { logWhatsAppAttempt({ tipo: study.avisoPendiente || "aviso", studyId: study.id, usuario: currentUser?.nombre }); onAvisado(study.id); }} title="Avisar al ayudante" className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"><MessageCircle size={12} /> {study.avisoPendiente === "modif" ? "Avisar cambio" : "Avisar cancelación"}</a>
               )}
             </div>
           )}
