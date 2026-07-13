@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  db_mysql:
+    image: mysql:8.0.33
+    container_name: db_mysql_imagenes
+    restart: always
+    ports:
+      - '3308:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: db_bed_manager
+      MYSQL_USER: user
+      MYSQL_PASSWORD: 1234
+    volumes:
+      - mysql_data_imagenes:/var/lib/mysql
+    networks:
+      - imagenes-network
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p1234']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: imagenes_server
+    restart: always
+    depends_on:
+      db_mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: db_mysql
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: 1234
+      DB_DATABASE: db_bed_manager
+      PORT: 3000
+      SEED_MOCK_USERS: 'true'
+      SEED_MOCK_DATA: 'true'
+    ports:
+      - '3002:3000'
+    networks:
+      - imagenes-network
+
+  client:
+    build:
+      context: ./cliente-web
+      dockerfile: Dockerfile.dev
+    container_name: imagenes_client
+    restart: always
+    depends_on:
+      - server
+    ports:
+      - '5175:5173'
+    environment:
+      VITE_API_URL: http://localhost:3002
+    networks:
+      - imagenes-network
+    volumes:
+      - ./cliente-web:/app
+      - /app/node_modules
+
+volumes:
+  mysql_data_imagenes:
+
+networks:
+  imagenes-network:
+    driver: bridge
