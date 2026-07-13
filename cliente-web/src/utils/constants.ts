@@ -23,7 +23,7 @@ export const PERMISOS = {
 
 export const ROLES = {
   medico: { label: "Médico solicitante", color: "#2563eb", permisos: ["pedir_estudio", "cancelar_pedido", "ver_servicio", "ver_imagenes"] },
-  tecnico: { label: "Técnico de imágenes", color: "#0d9488", permisos: ["iniciar", "finalizar", "retroceder", "ver_imagenes"] },
+  tecnico: { label: "Personal de imágenes", color: "#0d9488", permisos: ["iniciar", "finalizar", "retroceder", "ver_imagenes"] },
   administrativo: { label: "Administrativo", color: "#ea580c", permisos: ["autorizar", "ver_imagenes"] },
   admin: { label: "Admin general", color: "#7c3aed", permisos: Object.keys(PERMISOS) },
 };
@@ -39,9 +39,9 @@ export const SECTORES = [
 ];
 
 export const PRIORITIES: Record<string, any> = {
-  urgente: { label: "Urgente - código rojo", short: "Código rojo", badge: "bg-red-50 text-red-700 border-red-200", bar: "#dc2626", rank: 0, umbralRojo: 10, umbralAlerta: 30 },
+  urgente: { label: "Urgente - código rojo", short: "Código rojo", badge: "bg-red-50 text-red-700 border-red-200", bar: "#dc2626", rank: 0, umbralRojo: 30, umbralAlerta: 10 },
   prioritario: { label: "Prioridad", short: "Prioridad", badge: "bg-amber-50 text-amber-700 border-amber-200", bar: "#d97706", rank: 1, umbralRojo: 120, umbralAlerta: 120 },
-  normal: { label: "Normal", short: "Normal", badge: "bg-slate-100 text-slate-600 border-slate-200", bar: "#cbd5e1", rank: 2, umbralRojo: null, umbralAlerta: null },
+  normal: { label: "En internación", short: "En internación", badge: "bg-slate-100 text-slate-600 border-slate-200", bar: "#cbd5e1", rank: 2, umbralRojo: null, umbralAlerta: null },
 };
 
 export const CASOS_CODIGO_ROJO = [

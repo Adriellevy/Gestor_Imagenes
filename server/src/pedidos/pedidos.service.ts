@@ -1,56 +1,70 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, In, Repository } from 'typeorm';
 import { PEDIDOS_SEED } from '../data/seed';
-import { Pedido } from '../data/types';
+import { Pedido } from './entities/pedido.entity';
 
 @Injectable()
 export class PedidosService {
-  private pedidos: Pedido[] = [...PEDIDOS_SEED];
+  constructor(
+    @InjectRepository(Pedido)
+    private readonly pedidosRepository: Repository<Pedido>,
+  ) {}
 
-  findAll(): Pedido[] {
-    return this.pedidos.filter(p => p.estado !== 'realizado' && p.estado !== 'cancelado');
+  findAll(): Promise<Pedido[]> {
+    return this.pedidosRepository.find({
+      where: { estado: Not(In(['realizado', 'cancelado'])) },
+    });
   }
 
-  findTerminados(page: number, limit: number): { data: Pedido[], total: number, page: number, limit: number } {
-    const terminados = this.pedidos.filter(p => p.estado === 'realizado' || p.estado === 'cancelado');
-    // Sort descending by request date so newer completed are first
-    terminados.sort((a, b) => b.fechaSolicitud - a.fechaSolicitud);
-    const start = (page - 1) * limit;
-    const data = terminados.slice(start, start + limit);
-    return { data, total: terminados.length, page, limit };
+  async findTerminados(page: number, limit: number): Promise<{ data: Pedido[], total: number, page: number, limit: number }> {
+    const [data, total] = await this.pedidosRepository.findAndCount({
+      where: { estado: In(['realizado', 'cancelado']) },
+      order: { fechaSolicitud: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total, page, limit };
   }
 
-  create(pedido: Omit<Pedido, 'id'>): Pedido {
-    const nuevo: Pedido = {
+  create(pedido: Omit<Pedido, 'id'>): Promise<Pedido> {
+    const nuevo = this.pedidosRepository.create({
       ...pedido,
       id: 'ped_' + Math.random().toString(36).slice(2, 9),
-    };
-    this.pedidos.push(nuevo);
-    return nuevo;
+    });
+    return this.pedidosRepository.save(nuevo);
   }
 
-  update(id: string, updateData: Partial<Pedido>): Pedido | null {
-    const idx = this.pedidos.findIndex((p) => p.id === id);
-    if (idx !== -1) {
-      this.pedidos[idx] = { ...this.pedidos[idx], ...updateData };
-      return this.pedidos[idx];
-    }
-    return null;
-  }
-
-  cambiarEstado(id: string, estado: string, userId: string): Pedido | null {
-    const pedido = this.pedidos.find((p) => p.id === id);
+  async update(id: string, updateData: Partial<Pedido>): Promise<Pedido | null> {
+    const pedido = await this.pedidosRepository.findOneBy({ id });
     if (!pedido) return null;
-    
+    await this.pedidosRepository.save({ ...pedido, ...updateData });
+    return this.pedidosRepository.findOneBy({ id });
+  }
+
+  async cambiarEstado(id: string, estado: string, userId: string): Promise<Pedido | null> {
+    const pedido = await this.pedidosRepository.findOneBy({ id });
+    if (!pedido) return null;
+
     pedido.estado = estado;
     pedido.historial = [
       ...(pedido.historial || []),
       { estado, ts: Date.now(), por: userId }
     ];
-    
-    return pedido;
+
+    return this.pedidosRepository.save(pedido);
   }
 
-  reset(): void {
-    this.pedidos = [...PEDIDOS_SEED];
+  async acuseReciboEmergencia(id: string, userId: string): Promise<Pedido | null> {
+    const pedido = await this.pedidosRepository.findOneBy({ id });
+    if (!pedido || pedido.prioridad !== 'urgente') return null;
+
+    pedido.emergenciaVista = { ts: Date.now(), por: userId };
+    return this.pedidosRepository.save(pedido);
+  }
+
+  async reset(): Promise<void> {
+    await this.pedidosRepository.createQueryBuilder().delete().execute();
+    await this.pedidosRepository.save(PEDIDOS_SEED as Pedido[]);
   }
 }

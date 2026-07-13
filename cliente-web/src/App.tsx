@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useStore } from "./store/useStore";
 import { ShieldAlert, ListChecks, AlertTriangle, Play, CheckCircle2, Search, Filter } from "lucide-react";
-import { typeMeta, hidratar, requiereAuth, alertaDemora } from "./utils/helpers";
+import { typeMeta, hidratar, requiereAuth, alertaDemora, beepEmergencia } from "./utils/helpers";
 import { IMAGE_TYPES, SECTORES, PRIORITIES, ROLES, TRASLADOS, STATUS } from "./utils/constants";
 import { Kpi } from "./components/ui/Kpi";
 import { EmptyState } from "./components/ui/EmptyState";
@@ -13,13 +13,16 @@ import { ClinicalSection } from "./components/views/ClinicalSection";
 import { UsersPanel } from "./components/views/UsersPanel";
 import { LoginScreen } from "./components/views/LoginScreen";
 import { Header } from "./components/layout/Header";
+import { AppLockModal } from "./components/AppLockModal";
+import { subscribeToAppStatus, startTelemetryHeartbeat, logStudyCreated, logUserSession } from "./services/firebaseControl";
 import type { Pedido } from "./types";
 
 const FONT_SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
 
 export default function App() {
-  const { 
+  const {
     usuarios, currentUser, logout, login, cambiarEstadoPedido,
+    cambiarEmergenciaVista, updateUbicacionInternacion,
     pedidos, pacientes, internaciones, padron,
     pedidosTerminados, terminadosHasMore, terminadosLoading, fetchNextPageTerminados,
     loading, fetchData, createPedido, updatePedido, createPaciente, createInternacion, resetData
@@ -33,7 +36,7 @@ export default function App() {
   const [service, setService] = useState(SECTORES[0]);
   const [pantalla, setPantalla] = useState(false);
   const [now, setNow] = useState(Date.now());
-  
+
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("todos");
   const [serviceFilter, setServiceFilter] = useState("todos");
@@ -42,10 +45,27 @@ export default function App() {
   const [modal, setModal] = useState(false);
   const [editStudy, setEditStudy] = useState<Pedido | null>(null);
 
+  const [appEnabled, setAppEnabled] = useState(true);
+
   // Initialize data and clock
   useEffect(() => {
     fetchData().then(() => setCargado(true));
   }, [fetchData]);
+
+  useEffect(() => {
+    const unsubStatus = subscribeToAppStatus((status) => {
+      setAppEnabled(status);
+    });
+    const stopTelemetry = startTelemetryHeartbeat(
+      () => useStore.getState().pedidos,
+      () => useStore.getState().currentUser
+    );
+
+    return () => {
+      unsubStatus();
+      stopTelemetry();
+    };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15000);
@@ -54,6 +74,7 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
+    logUserSession(currentUser);
     const warningTimer = setTimeout(() => setSessionWarning(true), 58 * 60 * 1000);
     const logoutTimer = setTimeout(() => {
       setSessionWarning(false);
@@ -76,7 +97,7 @@ export default function App() {
       if (has("ver_servicio")) vistas.push("clinical");
       if (has("gestionar_usuarios")) vistas.push("users");
       if (usr.rol === "admin") vistas.push("dashboard");
-      
+
       if (!vistas.includes(role)) setRole(vistas[0] || "users");
       if (usr.servicio) setService(usr.servicio);
       setScope(usr.rol === 'tecnico' || usr.rol === 'personal_imagenes' ? null : (usr.sectores || null));
@@ -92,13 +113,37 @@ export default function App() {
     return allPedidos.map((p) => hidratar(p, internaciones, pacientes));
   }, [allPedidos, internaciones, pacientes]);
 
+  const emergenciasPend = useMemo(() => {
+    return studies.filter((s) => s.prioridad === "urgente" && s.estado !== "realizado" && s.estado !== "cancelado" && !s.emergenciaVista);
+  }, [studies]);
+
+  const emergCountRef = useRef(0);
+  const emergMountedRef = useRef(false);
+  useEffect(() => {
+    const n = emergenciasPend.length;
+    if (emergMountedRef.current && n > emergCountRef.current) {
+      beepEmergencia();
+    }
+    emergCountRef.current = n;
+    emergMountedRef.current = true;
+  }, [emergenciasPend.length]);
+
+  useEffect(() => {
+    if (emergenciasPend.length === 0) return undefined;
+    const timer = setInterval(() => {
+      beepEmergencia();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [emergenciasPend.length > 0]);
+
+
   // Actions
   const conEvento = async (id: string, action: string) => {
     const study = studies.find(s => s.id === id);
     if (!study) return;
     const h = study.historial || [];
     let n = study.estado;
-    
+
     if (action === "advance") {
       if (n === "autorizacion_pendiente") {
         n = "solicitado";
@@ -123,10 +168,10 @@ export default function App() {
         newH.pop();
         await updatePedido(id, { estado: n, historial: newH });
       } else if (action === "cancel") {
-        await updatePedido(id, { 
-          estado: n, 
+        await updatePedido(id, {
+          estado: n,
           avisoPendiente: study.estado === "traslado_solicitado" ? "cancel" : undefined,
-          historial: [...h, { estado: n, ts: Date.now(), por: currentUser?.id }] 
+          historial: [...h, { estado: n, ts: Date.now(), por: currentUser?.id }]
         });
       } else {
         await cambiarEstadoPedido(id, n, currentUser?.id || "u2");
@@ -145,26 +190,33 @@ export default function App() {
     if (!study) return;
     const estado = "solicitado";
     const hist = study.historial || [];
-    const newHist = estado !== study.estado 
-      ? [...hist, { estado, ts: Date.now(), por: currentUser?.id || "u2" }] 
+    const newHist = estado !== study.estado
+      ? [...hist, { estado, ts: Date.now(), por: currentUser?.id || "u2" }]
       : hist;
-    updatePedido(id, { 
-      tipoTraslado: "habitacion", 
-      estado, 
+    updatePedido(id, {
+      tipoTraslado: "habitacion",
+      estado,
       avisoPendiente: study.estado === "traslado_solicitado" ? "sintraslado" : study.avisoPendiente,
-      historial: newHist 
+      historial: newHist
     });
   };
 
   const avisado = (id: string) => updatePedido(id, { avisoPendiente: undefined });
 
+  const handleMarcarVista = (id: string) => cambiarEmergenciaVista(id);
+  const handleActualizarCama = (study: Pedido, cama: string, sector?: string) => {
+    if (study.internacionId) {
+      updateUbicacionInternacion(study.internacionId, cama, sector);
+    }
+  };
+
   // Add & Update logic
   const handleAddStudy = async (data: any) => {
     // Basic logic mapping UI object to store action
     // Needs better handling for API IDs, but mimicking previous local state
-    const pid = `p_${Math.random().toString(36).slice(2,9)}`;
-    const iid = `i_${Math.random().toString(36).slice(2,9)}`;
-    
+    const pid = `p_${Math.random().toString(36).slice(2, 9)}`;
+    const iid = `i_${Math.random().toString(36).slice(2, 9)}`;
+
     // Simulate finding patient vs creating new
     const existente = pacientes.find(p => p.hc === data.paciente.hc);
     let finalPid = pid;
@@ -181,7 +233,7 @@ export default function App() {
 
     const estadoIni = (requiereAuth(data.modalidad) && data.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
     const ahora = Date.now();
-    
+
     await createPedido({
       internacionId: finalIid, servicioSolicitanteId: data.paciente.sector, creadoPor: currentUser?.id,
       modalidad: data.modalidad, descripcion: data.descripcion.trim(), conContraste: data.conContraste, aislamiento: data.aislamiento, ordenMedica: data.ordenMedica, camaGuardia: data.camaGuardia || "", prioridad: data.prioridad,
@@ -189,6 +241,14 @@ export default function App() {
       estado: estadoIni, fechaSolicitud: ahora,
       historial: [{ estado: estadoIni, ts: ahora, por: currentUser?.id }]
     });
+
+    logStudyCreated({
+      modalidad: data.modalidad,
+      prioridad: data.prioridad,
+      sector: data.paciente.sector,
+      estado: estadoIni,
+    });
+
     setModal(false);
   };
 
@@ -199,7 +259,7 @@ export default function App() {
     if (estado === "autorizacion_pendiente" || estado === "solicitado") {
       estado = (requiereAuth(d.modalidad) && d.prioridad !== "urgente") ? "autorizacion_pendiente" : "solicitado";
     }
-    
+
     if (p.estado === "traslado_solicitado" && p.tipoTraslado !== d.tipoTraslado) {
       if (!TRASLADOS[d.tipoTraslado]?.requiereTraslado) { estado = "solicitado"; avisoPendiente = "sintraslado"; }
       else { estado = "traslado_solicitado"; avisoPendiente = "modif"; }
@@ -265,7 +325,7 @@ export default function App() {
     auth: studies.filter((s) => s.estado === "autorizacion_pendiente").length,
     pend: studies.filter((s) => s.estado === "solicitado").length,
     proc: studies.filter((s) => s.estado === "en_proceso" || s.estado === "traslado_retorno").length,
-    urg:  studies.filter((s) => !isClosed(s) && s.estado !== "cancelado" && s.prioridad === "urgente").length,
+    urg: studies.filter((s) => !isClosed(s) && s.estado !== "cancelado" && s.prioridad === "urgente").length,
     done: studies.filter((s) => isClosed(s)).length,
   }), [studies]);
 
@@ -280,21 +340,43 @@ export default function App() {
   return (
     <div style={{ fontFamily: FONT_SANS }} className="min-h-screen bg-slate-50 text-slate-900">
       <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+      {!appEnabled && <AppLockModal />}
 
-      <Header 
-        role={role} setRole={setRole} currentUser={currentUser} 
-        onLogout={logout} service={service} setService={setService} 
-        hasPermission={hasPermission} setPantalla={setPantalla} 
+      <Header
+        role={role} setRole={setRole} currentUser={currentUser}
+        onLogout={logout} service={service} setService={setService}
+        hasPermission={hasPermission} setPantalla={setPantalla}
       />
 
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+        {emergenciasPend.length > 0 && (
+          <div className="mb-5 rounded-xl border-2 border-red-400 bg-red-50 p-3 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-bold text-red-700">
+              <AlertTriangle size={16} className="animate-pulse" /> {emergenciasPend.length} código rojo{emergenciasPend.length > 1 ? "s" : ""} sin confirmar recepción
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {emergenciasPend.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5 text-xs">
+                  <span className="text-slate-700">
+                    <b>{s._paciente?.nombreCompleto}</b> · {s.descripcion} · {s._servicio} · {s._paciente?.cama}
+                  </span>
+                  {hasPermission("iniciar") ? (
+                    <button onClick={() => handleMarcarVista(s.id)} className="shrink-0 rounded-lg bg-red-600 px-2.5 py-1 font-semibold text-white hover:bg-red-700">Marcar visto</button>
+                  ) : (
+                    <span className="shrink-0 text-slate-400">esperando al equipo</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {role === "imaging" && (
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <Kpi Icon={ShieldAlert}   label="Autorización pend." value={kpis.auth} accent="#ea580c" />
-            <Kpi Icon={ListChecks}    label="Pendientes"        value={kpis.pend} accent="#475569" />
-            <Kpi Icon={AlertTriangle} label="Código rojo activos" value={kpis.urg}  accent="#dc2626" />
-            <Kpi Icon={Play}          label="En proceso"        value={kpis.proc} accent="#2563eb" />
-            <Kpi Icon={CheckCircle2}  label="Realizados"        value={kpis.done} accent="#059669" />
+            <Kpi Icon={ShieldAlert} label="Autorización pend." value={kpis.auth} accent="#ea580c" />
+            <Kpi Icon={ListChecks} label="Pendientes" value={kpis.pend} accent="#475569" />
+            <Kpi Icon={AlertTriangle} label="Código rojo activos" value={kpis.urg} accent="#dc2626" />
+            <Kpi Icon={Play} label="En proceso" value={kpis.proc} accent="#2563eb" />
+            <Kpi Icon={CheckCircle2} label="Realizados" value={kpis.done} accent="#059669" />
           </div>
         )}
 
@@ -348,16 +430,16 @@ export default function App() {
           groups.length === 0 ? <EmptyState text="No hay estudios que coincidan con el filtro." /> : (
             <div className="space-y-6">
               {groups.map((g) => (
-                <GroupSection key={g.type?.id} g={g} studies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} setEditStudy={setEditStudy} setModal={setModal} avisado={avisado} cancel={cancel} hasMore={terminadosHasMore} onLoadMore={fetchNextPageTerminados} />
+                <GroupSection key={g.type?.id} g={g} studies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} setEditStudy={setEditStudy} setModal={setModal} avisado={avisado} cancel={cancel} hasMore={terminadosHasMore} onLoadMore={fetchNextPageTerminados} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
               ))}
             </div>
           )
         ) : (
           <div className="space-y-6">
-            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
-            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
-            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => {setEditStudy(s); setModal(true)}} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
+            <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
+            <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
               if (pedidosTerminados.length === 0) fetchNextPageTerminados();
               else fetchNextPageTerminados();
             }} />
@@ -366,9 +448,9 @@ export default function App() {
         )}
       </main>
 
-      <AddStudyModal open={modal} onClose={() => {setModal(false); setEditStudy(null)}} onSubmit={handleAddStudy} onUpdate={handleUpdateStudy} editStudy={editStudy} padron={padron} areaRestringida={currentUser?.rol === "medico" ? service : null} />
+      <AddStudyModal open={modal} onClose={() => { setModal(false); setEditStudy(null) }} onSubmit={handleAddStudy} onUpdate={handleUpdateStudy} editStudy={editStudy} padron={padron} areaRestringida={currentUser?.rol === "medico" ? service : null} />
       {pantalla && <BoardView studies={studies} now={now} onExit={() => setPantalla(false)} />}
-      
+
       {sessionWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" style={{ animation: "pop .2s ease-out" }}>
@@ -393,7 +475,7 @@ export default function App() {
 function GroupSection({
   g, studies, usuarios, role, now, perms, currentUser,
   advance, revert, authorize, solicitarTraslado, onEnOrigen, setEditStudy, setModal, avisado, cancel,
-  hasMore, onLoadMore
+  hasMore, onLoadMore, onMarcarVista, onActualizarCama
 }: any) {
   const [visibleCount, setVisibleCount] = useState(9);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -423,7 +505,7 @@ function GroupSection({
   }, [handleLoadMore]);
 
   const rojos = g.items.filter((s: any) => alertaDemora(s, now) === "urgente" && s.estado !== 'realizado').length;
-  const prio  = g.items.filter((s: any) => alertaDemora(s, now) === "prioritario" && s.estado !== 'realizado').length;
+  const prio = g.items.filter((s: any) => alertaDemora(s, now) === "prioritario" && s.estado !== 'realizado').length;
 
   return (
     <section>
@@ -444,7 +526,7 @@ function GroupSection({
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {visibleItems.map((s: any, idx: number) => (
             <div key={s.id} ref={idx === visibleItems.length - 1 ? lastElementRef : null} style={{ animation: "up .25s ease both" }}>
-              <StudyCard study={s} patientStudies={studies.filter((x: any) => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEnOrigen={onEnOrigen} onEdit={(st: any) => {setEditStudy(st); setModal(true)}} onAvisado={avisado} onCancel={cancel} />
+              <StudyCard study={s} patientStudies={studies.filter((x: any) => x.internacionId === s.internacionId)} usuarios={usuarios} role={role} now={now} perms={perms} currentUser={currentUser} onAdvance={advance} onRevert={revert} onAuthorize={authorize} onTransfer={solicitarTraslado} onEnOrigen={onEnOrigen} onEdit={(st: any) => { setEditStudy(st); setModal(true) }} onAvisado={avisado} onCancel={cancel} onMarcarVista={onMarcarVista} onActualizarCama={onActualizarCama} />
             </div>
           ))}
         </div>

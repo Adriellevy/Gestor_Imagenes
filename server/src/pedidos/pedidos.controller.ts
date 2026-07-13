@@ -40,4 +40,13 @@ export class PedidosController {
   ) {
     return this.pedidosService.cambiarEstado(id, estado, userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/vista')
+  acuseReciboEmergencia(
+    @Param('id') id: string,
+    @Body('userId') userId: string,
+  ) {
+    return this.pedidosService.acuseReciboEmergencia(id, userId);
+  }
 }

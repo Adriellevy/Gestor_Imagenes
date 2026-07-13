@@ -1,8 +1,8 @@
 import axios from 'axios';
 import type { Paciente, Internacion, Usuario, Pedido } from '../types';
 
-//const API_URL = 'http://localhost:3000';
-const API_URL = 'https://gestoy-imagenes.onrender.com';
+const API_URL = 'http://localhost:3000';
+//const API_URL = 'https://gestoy-imagenes.onrender.com';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -73,6 +73,20 @@ export const updatePedido = async (id: string, updates: Partial<Pedido>): Promis
 
 export const cambiarEstadoPedido = async (id: string, estado: string, userId: string): Promise<Pedido> => {
   const { data } = await api.patch(`/pedidos/${id}/estado`, { estado, userId });
+  return data;
+};
+
+export const acuseReciboEmergencia = async (id: string, userId: string): Promise<Pedido> => {
+  const { data } = await api.patch(`/pedidos/${id}/vista`, { userId });
+  return data;
+};
+
+export const updateUbicacionInternacion = async (
+  internacionId: string,
+  cama: string,
+  sector?: string
+): Promise<Internacion> => {
+  const { data } = await api.patch(`/internaciones/${internacionId}/ubicacion`, { cama, sector });
   return data;
 };
 

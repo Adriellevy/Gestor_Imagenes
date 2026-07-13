@@ -47,7 +47,8 @@ export function mensajeTraslado(study: any, tipo = "ida", hermanos: any[] = []) 
       ...(!vuelta && hermanos && hermanos.length ? [`Otros estudios del paciente: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
       `Prioridad: ${PRIORITIES[study.prioridad]?.label}`,
     ];
-  return lineas.join("\n");
+  const cuerpo = lineas.join("\n");
+  return study.prioridad === "urgente" ? `🔴 CÓDIGO ROJO - URGENCIA\n\n${cuerpo}` : cuerpo;
 }
 export const linkWhatsApp = (study: any, tipo = "ida", hermanos: any[] = []) => `https://wa.me/${NUMERO_TRASLADOS}?text=${encodeURIComponent(mensajeTraslado(study, tipo, hermanos))}`;
 
@@ -58,6 +59,38 @@ export function edad(fechaNacimiento: string) {
   let a = n.getFullYear() - d.getFullYear();
   if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
   return a;
+}
+
+let _emergAudioCtx: AudioContext | null = null;
+export function beepEmergencia() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!_emergAudioCtx) {
+      _emergAudioCtx = new AudioCtx();
+    }
+    const ctx = _emergAudioCtx;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const t0 = ctx.currentTime;
+    [[0, 880], [0.28, 880], [0.56, 1245]].forEach(([dt, f]) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "square";
+      o.frequency.value = f;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = t0 + dt;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.start(t);
+      o.stop(t + 0.22);
+    });
+  } catch {
+    // el navegador puede bloquear el audio hasta una interacción del usuario
+  }
 }
 
 export function hidratar(pedido: Pedido, internaciones: Internacion[], pacientes: Paciente[]): Pedido {
@@ -73,6 +106,7 @@ export function hidratar(pedido: Pedido, internaciones: Internacion[], pacientes
       edad: paciente ? edad(paciente.fechaNacimiento) : "—",
       cama: internacion?.ubicacion.cama ?? "—",
       obraSocial: paciente?.obraSocial,
+      fechaNacimiento: paciente?.fechaNacimiento ?? null,
     },
     _servicio: internacion?.servicioId ?? pedido.servicioSolicitanteId,
   };
