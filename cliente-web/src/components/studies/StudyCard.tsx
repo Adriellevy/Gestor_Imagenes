@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { 
-  Clock, AlertTriangle, CheckCircle2, Play, X, 
-  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble, Layers, QrCode, FileText 
+import {
+  Clock, AlertTriangle, CheckCircle2, Play, X,
+  ChevronDown, RotateCcw, Stethoscope, ShieldAlert, ShieldCheck, Truck, MessageCircle, Pencil, Lock, BedDouble, Layers, QrCode, FileText
 } from "lucide-react";
 import { typeMeta, waitMins, waitText, linkWhatsApp, fmtHora } from '../../utils/helpers';
 import { PRIORITIES, STATUS, TRASLADOS, ESTADOS_PRE_TRASLADO, ROLES, MODALIDADES_PORTATIL } from '../../utils/constants';
@@ -31,10 +31,10 @@ interface StudyCardProps {
   onActualizarCama?: (study: Pedido, cama: string, sector?: string) => void;
 }
 
-export function StudyCard({ 
-  study, patientStudies = [], usuarios, role, now, perms = {}, currentUser, 
-  onAdvance, onRevert, onAuthorize, onTransfer = () => {}, onEdit = () => {}, onAvisado = () => {}, onEnOrigen = () => {}, onCancel,
-  onMarcarVista = () => {}, onActualizarCama = () => {}
+export function StudyCard({
+  study, patientStudies = [], usuarios, role, now, perms = {}, currentUser,
+  onAdvance, onRevert, onAuthorize, onTransfer = () => { }, onEdit = () => { }, onAvisado = () => { }, onEnOrigen = () => { }, onCancel,
+  onMarcarVista = () => { }, onActualizarCama = () => { }
 }: StudyCardProps) {
   const [verHist, setVerHist] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -43,35 +43,35 @@ export function StudyCard({
   const t = typeMeta(study.modalidad) || { short: study.modalidad, Icon: Stethoscope, badge: "bg-gray-50 text-gray-700" };
   const pr = PRIORITIES[study.prioridad] || PRIORITIES.normal;
   const st = STATUS[study.estado] || { label: study.estado, active: false, badge: "bg-gray-50 text-gray-500" };
-  
+
   // Si no está hidratado correctamente, previene error
   const p = study._paciente || { nombreCompleto: "—", hc: "—", dni: "—", edad: "—", cama: "—", obraSocial: undefined };
-  
+
   const mins = waitMins(study.fechaSolicitud, now);
   const closed = study.estado === "realizado";
   const overdue = st.active && !closed && pr.umbralRojo != null && mins > pr.umbralRojo;
 
   const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
   const puedeGestionar = perms.cancelar_pedido && ESTADOS_PRE_TRASLADO.includes(study.estado) && (currentUser?.rol === "admin" || currentUser?.id === study.creadoPor);
-  
+
   const hermanosIda = patientStudies.filter(x => x.id !== study.id && (x.estado === "solicitado" || x.estado === "traslado_solicitado") && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
-  const hermanosVuelta = patientStudies.filter(x => x.id !== study.id && (x.estado === "en_proceso" || x.estado === "traslado_retorno") && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
   const hermanos = patientStudies.filter(x => x.id !== study.id && STATUS[x.estado]?.active);
-  
+  const pendingSiblings = patientStudies
+    .filter(x => x.id !== study.id && (x.estado === "solicitado" || x.estado === "traslado_solicitado" || x.estado === "autorizacion_pendiente" || x.estado === "en_proceso") && STATUS[x.estado]?.active)
+    .sort((a, b) => ((PRIORITIES[a.prioridad]?.rank ?? 99) - (PRIORITIES[b.prioridad]?.rank ?? 99)) || (a.fechaSolicitud - b.fechaSolicitud));
+
   const nextAction = () => {
     if (study.estado === "autorizacion_pendiente") return { label: "Autorizar", Icon: ShieldCheck, cls: "bg-orange-600 hover:bg-orange-700", authorize: true, perm: "autorizar" };
     if (study.estado === "solicitado") return needsTransfer
       ? { label: "Solicitar traslado", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", transfer: true, perm: "iniciar" }
       : { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "traslado_solicitado") return { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
-    if (study.estado === "en_proceso") return { label: "Finalizar estudio", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
-    if (study.estado === "estudio_finalizado") return needsTransfer
-      ? { label: "Llamar camillero (devolver paciente)", Icon: Truck, cls: "bg-purple-600 hover:bg-purple-700", transferPost: true, perm: "finalizar" }
-      : { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
-    if (study.estado === "traslado_retorno") return { label: "Completado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
+    if (study.estado === "en_proceso") return needsTransfer
+      ? { label: "Estudio finalizado", Icon: Truck, cls: "bg-purple-600 hover:bg-purple-700", returnTransfer: true, perm: "finalizar" }
+      : { label: "Estudio finalizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
     return null;
   };
-  
+
   const na = nextAction();
   const puedeAccion = na && perms[na.perm];
 
@@ -100,12 +100,6 @@ export function StudyCard({
               )}
               {study.estado === "traslado_solicitado" && (
                 <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado solicitado</Badge>
-              )}
-              {study.estado === "estudio_finalizado" && (
-                <Badge className="bg-purple-50 text-purple-700 border-purple-200"><CheckCircle2 size={11} /> Estudio finalizado</Badge>
-              )}
-              {study.estado === "traslado_retorno" && (
-                <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado post-estudio</Badge>
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500" style={{ fontFamily: FONT_MONO }}>
@@ -164,7 +158,7 @@ export function StudyCard({
         ) : study.estado === "autorizacion_pendiente" ? (
           <span className="mt-1 ml-2 inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle size={11} /> Sin orden médica adjunta</span>
         ) : null}
-        {(study.tipoTraslado === "ambulatorio" || study.estado === "realizado") && (
+        {study.tipoTraslado === "ambulatorio" && (
           <button onClick={() => setQrOpen(true)} className="mt-1 ml-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"><QrCode size={12} /> QR para el paciente</button>
         )}
         {qrOpen && <QrModal study={study} onClose={() => setQrOpen(false)} />}
@@ -190,17 +184,23 @@ export function StudyCard({
               {perms.retroceder && st.active && study.estado !== "solicitado" && study.estado !== "autorizacion_pendiente" && (
                 <button onClick={() => onRevert(study.id)} title="Retroceder estado" className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"><RotateCcw size={13} /></button>
               )}
-              {(study.estado === "traslado_solicitado" || study.estado === "traslado_retorno") && puedeAccion && (
-                <a href={linkWhatsApp(study, study.estado === "traslado_retorno" ? "vuelta" : "ida", study.estado === "traslado_retorno" ? hermanosVuelta : hermanosIda)} target="_blank" rel="noopener noreferrer" title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
+              {study.estado === "traslado_solicitado" && puedeAccion && (
+                <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" title="Reenviar WhatsApp al ayudante" className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200 text-cyan-600 transition-colors hover:bg-cyan-50"><MessageCircle size={13} /></a>
               )}
               {na && puedeAccion && (
                 na.transfer ? (
-                  <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => { onTransfer(study.id); hermanosIda.forEach(h => onTransfer(h.id)); }} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
-                    <na.Icon size={12} /> {na.label} {hermanosIda.length > 0 && `(${hermanosIda.length + 1})`}
+                  <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => onTransfer(study.id)} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                    <na.Icon size={12} /> {na.label}
                   </a>
-                ) : na.transferPost ? (
-                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Avisa el traslado post-estudio y marca como finalizado" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
-                    <na.Icon size={12} /> {na.label} {hermanosVuelta.length > 0 && `(${hermanosVuelta.length + 1})`}
+                ) : na.returnTransfer ? (
+                  <a href={linkWhatsApp(study, "vuelta", pendingSiblings)} target="_blank" rel="noopener noreferrer" onClick={() => {
+                    onAdvance(study.id);
+                    const ns = pendingSiblings.find(x => x.estado === "solicitado" && TRASLADOS[x.tipoTraslado]?.requiereTraslado);
+                    if (ns) {
+                      onTransfer?.(ns.id);
+                    }
+                  }} title="Avisa el traslado al siguiente paso y marca como finalizado" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                    <na.Icon size={12} /> {na.label}
                   </a>
                 ) : (
                   <button onClick={() => (na.authorize ? onAuthorize(study.id) : onAdvance(study.id))} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>

@@ -1,20 +1,13 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Printer } from 'lucide-react';
 import { typeMeta, fmtHora } from '../../utils/helpers';
+import { useStore } from '../../store/useStore';
 import type { Pedido } from '../../types';
-
-const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
-
-const INSTRUCCIONES_AMBULATORIO = [
-  "1) Desde Guardia, siga la cartelería hacia Diagnóstico por Imágenes.",
-  "2) Tome el ascensor central hasta el 2do piso.",
-  "3) Preséntese en la recepción de Imágenes mostrando este código.",
-  "4) Aguarde a ser llamado por su nombre.",
-];
 
 const fmtFecha = (ts: number) => new Date(ts).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-const qrPayload = (study: Pedido): string => {
+const qrPayload = (study: Pedido, instrucciones: string): string => {
   const p = study._paciente || { nombreCompleto: "—", hc: "—" };
   const mLabel = typeMeta(study.modalidad)?.label || study.modalidad;
   const lineas = [
@@ -24,7 +17,7 @@ const qrPayload = (study: Pedido): string => {
     ...(study.conContraste ? ["Requiere contraste"] : []),
     `Solicitado: ${fmtFecha(study.fechaSolicitud)} ${fmtHora(study.fechaSolicitud)} hs`,
     "PASOS A SEGUIR:",
-    ...INSTRUCCIONES_AMBULATORIO,
+    ...instrucciones.split("\n").filter(Boolean),
   ];
   let texto = lineas.join("\n");
   const enc = new TextEncoder();
@@ -194,8 +187,16 @@ interface QrModalProps {
 
 export function QrModal({ study, onClose }: QrModalProps) {
   const svgRef = useRef<HTMLDivElement>(null);
-  const payload = qrPayload(study);
+  const { instruccionesAmbulatorio } = useStore();
+  const instructionForStudy = instruccionesAmbulatorio[study.modalidad] || instruccionesAmbulatorio["default"] || "";
+  const payload = qrPayload(study, instructionForStudy);
   const matrix = qrMatrix(payload);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   const descargarTxt = () => {
     const p = study._paciente || { hc: "sin-hc" };
@@ -225,31 +226,48 @@ export function QrModal({ study, onClose }: QrModalProps) {
     window.print();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md max-h-[95vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">QR para el paciente</h3>
-            <p className="text-xs text-slate-500">El paciente lo escanea con la cámara del teléfono y ve el instructivo. Mostralo en pantalla o imprimilo.</p>
+            <h3 className="text-base font-semibold text-slate-900">Instructivo para el paciente</h3>
+            <p className="text-xs text-slate-500">Mostrale la pantalla para que lo lea, o imprimilo.</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
         </div>
+        
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 className="mb-2 text-sm font-bold text-slate-700">Pasos a seguir:</h4>
+          <ol className="list-inside list-decimal space-y-1 text-sm text-slate-600">
+            {instructionForStudy.split('\n').filter(l => l.trim()).map((line, idx) => {
+              const cleaned = line.replace(/^\d+[\)\.-]\s*/, '');
+              return <li key={idx} className="leading-snug">{cleaned}</li>;
+            })}
+          </ol>
+        </div>
+
         {matrix ? (
-          <div ref={svgRef} className="flex justify-center rounded-xl border border-slate-200 bg-white p-3">
-            <QRSvg matrix={matrix} />
+          <div className="mb-4">
+             <p className="mb-2 text-xs font-medium text-slate-500 text-center">QR para escanear con el teléfono</p>
+             <div ref={svgRef} className="mx-auto flex w-max justify-center rounded-xl border border-slate-200 bg-white p-3">
+               <QRSvg matrix={matrix} />
+             </div>
           </div>
         ) : (
           <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">No se pudo generar el QR (contenido demasiado largo).</p>
         )}
-        <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-600" style={{ fontFamily: FONT_MONO }}>{payload}</pre>
+        
         <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button onClick={descargarQR} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"><Download size={13} /> Descargar QR</button>
-          <button onClick={descargarTxt} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"><Download size={13} /> Instructivo (.txt)</button>
+          <button onClick={descargarQR} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"><Download size={13} /> QR (.svg)</button>
+          <button onClick={descargarTxt} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"><Download size={13} /> Texto (.txt)</button>
           <button onClick={imprimir} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"><Printer size={13} /> Imprimir</button>
           <button onClick={onClose} className="rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-medium text-white hover:bg-slate-800">Listo</button>
         </div>
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(modalContent, document.body);
 }

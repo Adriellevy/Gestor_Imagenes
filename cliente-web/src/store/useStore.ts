@@ -31,6 +31,9 @@ interface AppState {
   terminadosHasMore: boolean;
   terminadosLoading: boolean;
   fetchNextPageTerminados: () => Promise<void>;
+
+  instruccionesAmbulatorio: Record<string, string>;
+  setInstruccionesAmbulatorio: (modalidad: string, texto: string) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -47,6 +50,28 @@ export const useStore = create<AppState>((set, get) => ({
   terminadosPage: 0,
   terminadosHasMore: true,
   terminadosLoading: false,
+
+  instruccionesAmbulatorio: (() => {
+    try {
+      const stored = localStorage.getItem('instruccionesAmbulatorio');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (typeof parsed === 'object' && parsed !== null) return parsed;
+      }
+    } catch (e) {
+      // Ignorar error de parseo
+    }
+    return {
+      default: "1) Desde Guardia, siga la cartelería hacia Diagnóstico por Imágenes.\n2) Tome el ascensor central hasta el 2do piso.\n3) Preséntese en la recepción de Imágenes mostrando este código.\n4) Aguarde a ser llamado por su nombre."
+    };
+  })(),
+  setInstruccionesAmbulatorio: (modalidad, texto) => {
+    set((state) => {
+      const newInstrucciones = { ...state.instruccionesAmbulatorio, [modalidad]: texto };
+      localStorage.setItem('instruccionesAmbulatorio', JSON.stringify(newInstrucciones));
+      return { instruccionesAmbulatorio: newInstrucciones };
+    });
+  },
 
   loading: true,
   

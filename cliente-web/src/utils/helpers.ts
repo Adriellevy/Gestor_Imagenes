@@ -62,7 +62,7 @@ export function mensajeTraslado(study: any, tipo = "ida", hermanos: any[] = []) 
       `Traslado: ${tr}`,
       `Estudio: ${study.descripcion}${vuelta ? " (finalizado)" : ""}`,
       ...(!vuelta && hermanos && hermanos.length ? [`Otros estudios del paciente: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
-      ...(vuelta && hermanos && hermanos.length ? [`Siguiente estudio: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
+      ...(vuelta && hermanos && hermanos.length ? [`Siguientes estudios pendientes: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
       `Prioridad: ${PRIORITIES[study.prioridad]?.label}`,
     ];
   const cuerpo = lineas.join("\n");

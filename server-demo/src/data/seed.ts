@@ -75,16 +75,16 @@ const TRASLADOS_REQUIERE: Record<string, boolean> = {
 function historialSeed(p: Partial<Pedido> & { modalidad?: string }) {
   const requiereT = p.tipoTraslado && TRASLADOS_REQUIERE[p.tipoTraslado];
   const arrancaAuth = p.modalidad === 'rm' || p.modalidad === 'mn';
-  const SEC_ESTADO = ["autorizacion_pendiente", "solicitado", "traslado_solicitado", "en_proceso", "estudio_finalizado", "traslado_retorno", "realizado"];
+  const SEC_ESTADO = ["autorizacion_pendiente", "solicitado", "traslado_solicitado", "en_proceso", "realizado"];
   let camino;
   if (p.estado === "cancelado") {
     camino = [arrancaAuth ? "autorizacion_pendiente" : "solicitado", "cancelado"];
   } else {
-    camino = SEC_ESTADO.filter((e) => (e !== "autorizacion_pendiente" || arrancaAuth) && (e !== "traslado_solicitado" || requiereT) && (e !== "estudio_finalizado" || requiereT) && (e !== "traslado_retorno" || requiereT));
+    camino = SEC_ESTADO.filter((e) => (e !== "autorizacion_pendiente" || arrancaAuth) && (e !== "traslado_solicitado" || requiereT));
     const corte = camino.indexOf(p.estado || '');
     camino = corte >= 0 ? camino.slice(0, corte + 1) : [p.estado];
   }
-  const actor: Record<string, string | null> = { autorizacion_pendiente: p.creadoPor ?? null, solicitado: arrancaAuth ? "u5" : (p.creadoPor ?? null), traslado_solicitado: "u3", en_proceso: "u4", estudio_finalizado: "u4", traslado_retorno: "u4", realizado: "u4", cancelado: p.creadoPor ?? null };
+  const actor: Record<string, string | null> = { autorizacion_pendiente: p.creadoPor ?? null, solicitado: arrancaAuth ? "u5" : (p.creadoPor ?? null), traslado_solicitado: "u3", en_proceso: "u4", realizado: "u4", cancelado: p.creadoPor ?? null };
   return camino.map((e, i) => ({ estado: e, ts: (p.fechaSolicitud || 0) + i * 5 * 60000, por: actor[e as string] ?? null }));
 }
 
