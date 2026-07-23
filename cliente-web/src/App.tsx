@@ -13,6 +13,8 @@ import { ClinicalSection } from "./components/views/ClinicalSection";
 import { UsersPanel } from "./components/views/UsersPanel";
 import { LoginScreen } from "./components/views/LoginScreen";
 import { Header } from "./components/layout/Header";
+import { AppLockModal } from "./components/AppLockModal";
+import { subscribeToAppStatus, startTelemetryHeartbeat, logStudyCreated, logUserSession } from "./services/firebaseControl";
 import type { Pedido } from "./types";
 
 const FONT_SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
@@ -43,10 +45,27 @@ export default function App() {
   const [modal, setModal] = useState(false);
   const [editStudy, setEditStudy] = useState<Pedido | null>(null);
 
+  const [appEnabled, setAppEnabled] = useState(true);
+
   // Initialize data and clock
   useEffect(() => {
     fetchData().then(() => setCargado(true));
   }, [fetchData]);
+
+  useEffect(() => {
+    const unsubStatus = subscribeToAppStatus((status) => {
+      setAppEnabled(status);
+    });
+    const stopTelemetry = startTelemetryHeartbeat(
+      () => useStore.getState().pedidos,
+      () => useStore.getState().currentUser
+    );
+
+    return () => {
+      unsubStatus();
+      stopTelemetry();
+    };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15000);
@@ -55,6 +74,7 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
+    logUserSession(currentUser);
     const warningTimer = setTimeout(() => setSessionWarning(true), 58 * 60 * 1000);
     const logoutTimer = setTimeout(() => {
       setSessionWarning(false);
@@ -221,6 +241,14 @@ export default function App() {
       estado: estadoIni, fechaSolicitud: ahora,
       historial: [{ estado: estadoIni, ts: ahora, por: currentUser?.id }]
     });
+
+    logStudyCreated({
+      modalidad: data.modalidad,
+      prioridad: data.prioridad,
+      sector: data.paciente.sector,
+      estado: estadoIni,
+    });
+
     setModal(false);
   };
 
@@ -312,6 +340,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: FONT_SANS }} className="min-h-screen bg-slate-50 text-slate-900">
       <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+      {!appEnabled && <AppLockModal />}
 
       <Header
         role={role} setRole={setRole} currentUser={currentUser}
