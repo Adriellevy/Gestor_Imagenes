@@ -10,6 +10,7 @@ import { PedidosModule } from './pedidos/pedidos.module';
 import { AuthModule } from './auth/auth.module';
 import { SeederModule } from './data/seeder.module';
 import { TiposEstudioModule } from './tipos-estudio/tipos-estudio.module';
+import { FhirModule } from './fhir/fhir.module';
 import { Usuario } from './usuarios/entities/usuario.entity';
 import { Paciente } from './pacientes/entities/paciente.entity';
 import { Internacion } from './internaciones/entities/internacion.entity';
@@ -39,6 +40,7 @@ import { TipoEstudio } from './tipos-estudio/entities/tipo-estudio.entity';
     InternacionesModule,
     PedidosModule,
     TiposEstudioModule,
+    FhirModule,
     SeederModule,
   ],
   controllers: [AppController],

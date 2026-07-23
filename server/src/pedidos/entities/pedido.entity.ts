@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryColumn } from 'typeorm';
 import { Internacion } from '../../internaciones/entities/internacion.entity';
 import { EstudioSolicitado } from './estudio-solicitado.entity';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
 
 const tsTransformer = {
   to: (value?: number | null) => value,
@@ -24,6 +25,10 @@ export class Pedido {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   creadoPor?: string;
+
+  @ManyToOne(() => Usuario, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'creadoPor' })
+  usuarioCreador?: Usuario;
 
   @OneToOne(() => EstudioSolicitado, (e) => e.pedido)
   estudioSolicitado?: EstudioSolicitado;

@@ -15,6 +15,10 @@ export class UsuariosService {
     return this.usuariosRepository.find();
   }
 
+  upsert(usuario: Usuario): Promise<Usuario> {
+    return this.usuariosRepository.save(usuario);
+  }
+
   async reset(): Promise<void> {
     await this.usuariosRepository.createQueryBuilder().delete().execute();
     await this.usuariosRepository.save(USUARIOS as unknown as Usuario[]);
