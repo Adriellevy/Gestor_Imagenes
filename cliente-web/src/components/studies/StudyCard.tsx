@@ -65,9 +65,9 @@ export function StudyCard({
       : { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "traslado_solicitado") return { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "en_proceso") return { label: "Finalizar estudio", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
-    if (study.estado === "realizado") return needsTransfer
-      ? { label: "Llamar a camillero para devolver al paciente", Icon: Truck, cls: "bg-purple-600 hover:bg-purple-700", transferPost: true, perm: "finalizar" }
-      : null;
+    if (study.estado === "estudio_finalizado") return needsTransfer
+      ? { label: "Llamar camillero (devolver paciente)", Icon: Truck, cls: "bg-purple-600 hover:bg-purple-700", transferPost: true, perm: "finalizar" }
+      : { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
     if (study.estado === "traslado_retorno") return { label: "Completado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
     return null;
   };
@@ -100,6 +100,9 @@ export function StudyCard({
               )}
               {study.estado === "traslado_solicitado" && (
                 <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado solicitado</Badge>
+              )}
+              {study.estado === "estudio_finalizado" && (
+                <Badge className="bg-purple-50 text-purple-700 border-purple-200"><CheckCircle2 size={11} /> Estudio finalizado</Badge>
               )}
               {study.estado === "traslado_retorno" && (
                 <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado post-estudio</Badge>

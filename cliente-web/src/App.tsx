@@ -130,11 +130,12 @@ export default function App() {
       } else if (n === "solicitado" || n === "traslado_solicitado") {
         n = "en_proceso";
       } else if (n === "en_proceso") {
-        n = "realizado";
-      } else if (n === "realizado") {
+        const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
+        n = needsTransfer ? "estudio_finalizado" : "realizado";
+      } else if (n === "estudio_finalizado") {
         n = "traslado_retorno";
       } else if (n === "traslado_retorno") {
-        n = "completado";
+        n = "realizado";
       }
     } else if (action === "revert" && h.length > 1) {
       n = h[h.length - 2].estado;
@@ -253,7 +254,7 @@ export default function App() {
     });
   };
 
-  const isClosed = (s: Pedido) => s.estado === "realizado" || s.estado === "completado";
+  const isClosed = (s: Pedido) => s.estado === "realizado";
   const sortFn = (a: Pedido, b: Pedido) => {
     const ca = isClosed(a) || a.estado === "cancelado" ? 1 : 0;
     const cb = isClosed(b) || b.estado === "cancelado" ? 1 : 0;
@@ -296,7 +297,7 @@ export default function App() {
   const kpis = useMemo(() => ({
     auth: studies.filter((s) => s.estado === "autorizacion_pendiente").length,
     pend: studies.filter((s) => s.estado === "solicitado").length,
-    proc: studies.filter((s) => s.estado === "en_proceso" || s.estado === "traslado_retorno").length,
+    proc: studies.filter((s) => s.estado === "en_proceso" || s.estado === "estudio_finalizado" || s.estado === "traslado_retorno").length,
     urg: studies.filter((s) => !isClosed(s) && s.estado !== "cancelado" && s.prioridad === "urgente").length,
     done: studies.filter((s) => isClosed(s)).length,
   }), [studies]);
@@ -409,8 +410,8 @@ export default function App() {
           <div className="space-y-6">
             <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
             <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
-            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado", "completado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
+            <ClinicalSection title="En proceso" items={myBy(["en_proceso", "estudio_finalizado", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
+            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
               if (pedidosTerminados.length === 0) fetchNextPageTerminados();
               else fetchNextPageTerminados();
             }} />
