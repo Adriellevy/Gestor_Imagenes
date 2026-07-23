@@ -131,7 +131,6 @@ export default function App() {
         n = "en_proceso";
       } else if (n === "en_proceso") {
         const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
-        const hermanos = studies.filter(x => x.id !== study.id && x.internacionId === study.internacionId && STATUS[x.estado]?.active);
         n = needsTransfer ? "traslado_retorno" : "realizado";
       } else if (n === "traslado_retorno") {
         n = "realizado";
