@@ -33,18 +33,36 @@ export function mensajeTraslado(study: any, tipo = "ida", hermanos: any[] = []) 
   const tr = TRASLADOS[study.tipoTraslado]?.label ?? "—";
   const paciente = `Paciente: ${study._paciente?.nombreCompleto} (HC ${study._paciente?.hc})`;
   const vuelta = tipo === "vuelta";
+
+  let origen = ubic;
+  let destino = imagenes;
+  let titulo = "Solicitud de traslado";
+  
+  if (vuelta) {
+    origen = imagenes;
+    if (hermanos && hermanos.length > 0) {
+      destino = typeMeta(hermanos[0].modalidad)?.label ?? "Imágenes";
+      titulo = "Solicitud de traslado (a siguiente estudio)";
+    } else {
+      destino = ubic;
+      titulo = "Solicitud de traslado (regreso a origen)";
+    }
+  }
+
   const lineas =
     tipo === "cancel"      ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "Estudio suspendido."] :
     tipo === "sintraslado" ? ["TRASLADO CANCELADO", paciente, `Ubicación: ${ubic}`, "El estudio se realizará sin traslado (en cama/habitación)."] :
     tipo === "modif"       ? ["TRASLADO MODIFICADO", paciente, `Ubicación: ${ubic}`, `Nuevo medio: ${tr}`] :
     [
-      vuelta ? "Solicitud de traslado (regreso a origen)" : "Solicitud de traslado",
+      titulo,
       paciente,
       ...(study.aislamiento ? ["AISLAMIENTO: requiere precauciones (traer EPP)."] : []),
-      ...(vuelta ? [`Desde: ${imagenes}`, `Hacia: ${ubic}`] : [`Origen: ${ubic}`, `Destino: ${imagenes}`]),
+      `Desde: ${origen}`,
+      `Hacia: ${destino}`,
       `Traslado: ${tr}`,
       `Estudio: ${study.descripcion}${vuelta ? " (finalizado)" : ""}`,
       ...(!vuelta && hermanos && hermanos.length ? [`Otros estudios del paciente: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
+      ...(vuelta && hermanos && hermanos.length ? [`Siguiente estudio: ${hermanos.map((h: any) => `${typeMeta(h.modalidad)?.short || h.modalidad} ${h.descripcion}`).join("; ")}`] : []),
       `Prioridad: ${PRIORITIES[study.prioridad]?.label}`,
     ];
   const cuerpo = lineas.join("\n");

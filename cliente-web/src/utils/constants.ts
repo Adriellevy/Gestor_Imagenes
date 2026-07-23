@@ -58,7 +58,7 @@ export const STATUS: Record<string, any> = {
   solicitado: { label: "Pendiente", badge: "bg-slate-100 text-slate-600", rank: 0, active: true },
   traslado_solicitado: { label: "Traslado solicitado", badge: "bg-cyan-50 text-cyan-700", rank: 1, active: true },
   en_proceso: { label: "En proceso", badge: "bg-blue-50 text-blue-700", rank: 2, active: true },
-  traslado_retorno: { label: "Retorno solicitado", badge: "bg-cyan-50 text-cyan-700", rank: 2.5, active: true },
+  traslado_retorno: { label: "Traslado post-estudio", badge: "bg-cyan-50 text-cyan-700", rank: 2.5, active: true },
   realizado: { label: "Realizado", badge: "bg-emerald-50 text-emerald-700", rank: 3, active: false },
   cancelado: { label: "Cancelado", badge: "bg-rose-50 text-rose-700", rank: 9, active: false },
 };

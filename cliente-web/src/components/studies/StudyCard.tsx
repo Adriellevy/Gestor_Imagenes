@@ -101,7 +101,7 @@ export function StudyCard({
                 <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado solicitado</Badge>
               )}
               {study.estado === "traslado_retorno" && (
-                <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Retorno solicitado</Badge>
+                <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200"><Truck size={11} /> Traslado post-estudio</Badge>
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500" style={{ fontFamily: FONT_MONO }}>
@@ -195,7 +195,7 @@ export function StudyCard({
                     <na.Icon size={12} /> {na.label} {hermanosIda.length > 0 && `(${hermanosIda.length + 1})`}
                   </a>
                 ) : na.returnTransfer ? (
-                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado de regreso" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado post-estudio" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label} {hermanosVuelta.length > 0 && `(${hermanosVuelta.length + 1})`}
                   </a>
                 ) : (
