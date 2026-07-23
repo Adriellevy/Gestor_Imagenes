@@ -130,10 +130,11 @@ export default function App() {
       } else if (n === "solicitado" || n === "traslado_solicitado") {
         n = "en_proceso";
       } else if (n === "en_proceso") {
-        const needsTransfer = TRASLADOS[study.tipoTraslado]?.requiereTraslado;
-        n = needsTransfer ? "traslado_retorno" : "realizado";
-      } else if (n === "traslado_retorno") {
         n = "realizado";
+      } else if (n === "realizado") {
+        n = "traslado_retorno";
+      } else if (n === "traslado_retorno") {
+        n = "completado";
       }
     } else if (action === "revert" && h.length > 1) {
       n = h[h.length - 2].estado;
@@ -252,7 +253,7 @@ export default function App() {
     });
   };
 
-  const isClosed = (s: Pedido) => s.estado === "realizado";
+  const isClosed = (s: Pedido) => s.estado === "realizado" || s.estado === "completado";
   const sortFn = (a: Pedido, b: Pedido) => {
     const ca = isClosed(a) || a.estado === "cancelado" ? 1 : 0;
     const cb = isClosed(b) || b.estado === "cancelado" ? 1 : 0;
@@ -409,7 +410,7 @@ export default function App() {
             <ClinicalSection title="Autorización pendiente" items={myBy(["autorizacion_pendiente"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
             <ClinicalSection title="Pendientes" items={myBy(["solicitado", "programado", "traslado_solicitado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
             <ClinicalSection title="En proceso" items={myBy(["en_proceso", "traslado_retorno"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} />
-            <ClinicalSection title="Finalizados" items={myBy(["realizado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
+            <ClinicalSection title="Finalizados" items={myBy(["realizado", "completado", "cancelado"])} allStudies={studies} usuarios={usuarios} role={role} now={now} perms={perms as any} currentUser={currentUser} advance={advance} revert={revert} authorize={authorize} onEdit={(s) => { setEditStudy(s); setModal(true) }} onAvisado={avisado} cancel={cancel} solicitarTraslado={solicitarTraslado} onEnOrigen={hacerEnOrigen} onMarcarVista={handleMarcarVista} onActualizarCama={handleActualizarCama} hasMore={terminadosHasMore} loading={terminadosLoading} onLoadMore={() => {
               if (pedidosTerminados.length === 0) fetchNextPageTerminados();
               else fetchNextPageTerminados();
             }} />

@@ -64,10 +64,11 @@ export function StudyCard({
       ? { label: "Solicitar traslado", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", transfer: true, perm: "iniciar" }
       : { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
     if (study.estado === "traslado_solicitado") return { label: "Comenzar", Icon: Play, cls: "bg-blue-600 hover:bg-blue-700", perm: "iniciar" };
-    if (study.estado === "en_proceso") return needsTransfer && hermanos.length === 0
-      ? { label: "Solicitar regreso", Icon: Truck, cls: "bg-cyan-600 hover:bg-cyan-700", returnTransfer: true, perm: "finalizar" }
-      : { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
-    if (study.estado === "traslado_retorno") return { label: "Realizado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
+    if (study.estado === "en_proceso") return { label: "Finalizar estudio", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
+    if (study.estado === "realizado") return needsTransfer
+      ? { label: "Llamar a camillero para devolver al paciente", Icon: Truck, cls: "bg-purple-600 hover:bg-purple-700", transferPost: true, perm: "finalizar" }
+      : null;
+    if (study.estado === "traslado_retorno") return { label: "Completado", Icon: CheckCircle2, cls: "bg-emerald-600 hover:bg-emerald-700", perm: "finalizar" };
     return null;
   };
   
@@ -194,8 +195,8 @@ export function StudyCard({
                   <a href={linkWhatsApp(study, "ida", hermanosIda)} target="_blank" rel="noopener noreferrer" onClick={() => { onTransfer(study.id); hermanosIda.forEach(h => onTransfer(h.id)); }} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label} {hermanosIda.length > 0 && `(${hermanosIda.length + 1})`}
                   </a>
-                ) : na.returnTransfer ? (
-                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Finaliza y avisa el traslado post-estudio" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
+                ) : na.transferPost ? (
+                  <a href={linkWhatsApp(study, "vuelta", hermanosVuelta)} target="_blank" rel="noopener noreferrer" onClick={() => { onAdvance(study.id); hermanosVuelta.forEach(h => onAdvance(h.id)); }} title="Avisa el traslado post-estudio y marca como finalizado" className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white transition-colors ${na.cls}`}>
                     <na.Icon size={12} /> {na.label} {hermanosVuelta.length > 0 && `(${hermanosVuelta.length + 1})`}
                   </a>
                 ) : (
