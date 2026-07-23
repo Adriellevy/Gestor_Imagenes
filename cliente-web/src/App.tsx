@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useStore } from "./store/useStore";
 import { ShieldAlert, ListChecks, AlertTriangle, Play, CheckCircle2, Search, Filter } from "lucide-react";
 import { typeMeta, hidratar, requiereAuth, alertaDemora, beepEmergencia } from "./utils/helpers";
-import { IMAGE_TYPES, SECTORES, PRIORITIES, ROLES, TRASLADOS, STATUS } from "./utils/constants";
+import { IMAGE_TYPES, SECTORES, PRIORITIES, ROLES, TRASLADOS } from "./utils/constants";
 import { Kpi } from "./components/ui/Kpi";
 import { EmptyState } from "./components/ui/EmptyState";
 import { StudyCard } from "./components/studies/StudyCard";
