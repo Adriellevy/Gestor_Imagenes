@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Usuario, Paciente, Internacion, Pedido } from '../types';
 import * as api from '../services/api';
+import { decodeJwtPayload } from '../utils/jwt';
 
 interface AppState {
   currentUser: Usuario | null;
@@ -99,7 +100,28 @@ export const useStore = create<AppState>((set, get) => ({
   login: async (username: string, password: string) => {
     const { access_token } = await api.login(username, password);
     api.setAuthToken(access_token);
-    const user = get().usuarios.find((u) => u.id === username) ?? null;
+    // currentUser is built directly from the JWT claims rather than looked up
+    // in the local `usuarios` array: gestor-general's login usernames live in
+    // a different id space than this app's local `Usuario.id` values, so a
+    // `usuarios.find(u => u.id === username)` lookup essentially never matches.
+    const payload = decodeJwtPayload(access_token);
+    const user: Usuario | null = payload
+      ? {
+          id: payload.sub,
+          nombre: payload.username,
+          // NOTE: gestor-general's `role` claim (e.g. "Medico", "Gestor de
+          // camas") does not currently map to this app's local ROLES
+          // vocabulary (medico/tecnico/administrativo/admin) in
+          // src/utils/constants.ts. It is passed through as-is here purely
+          // for display; permission checks that key off `rol` against ROLES
+          // will not match until a proper mapping is introduced. Unifying
+          // gi_usuarios roles with gestor-general is deferred to a later
+          // migration phase (known, already-documented gap).
+          rol: payload.role,
+          servicio: undefined,
+          sectores: undefined,
+        }
+      : null;
     set({ currentUser: user });
   },
 
