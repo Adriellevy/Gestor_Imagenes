@@ -23,7 +23,7 @@ interface AppState {
   createPaciente: (paciente: Omit<Paciente, 'id'> | Paciente) => Promise<void>;
   createInternacion: (internacion: Omit<Internacion, 'id'> | Internacion) => Promise<void>;
   resetData: () => Promise<void>;
-  login: (userId: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 
   pedidosTerminados: Pedido[];
@@ -96,14 +96,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   
-  login: async (userId: string) => {
-    try {
-      const { access_token, user } = await api.login(userId);
-      api.setAuthToken(access_token);
-      set({ currentUser: user });
-    } catch (error) {
-      console.error('Error logging in:', error);
-    }
+  login: async (username: string, password: string) => {
+    const { access_token } = await api.login(username, password);
+    api.setAuthToken(access_token);
+    const user = get().usuarios.find((u) => u.id === username) ?? null;
+    set({ currentUser: user });
   },
 
   logout: () => {

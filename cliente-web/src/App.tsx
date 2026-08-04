@@ -21,7 +21,7 @@ const FONT_SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
 
 export default function App() {
   const {
-    usuarios, currentUser, logout, login, cambiarEstadoPedido,
+    usuarios, currentUser, logout, cambiarEstadoPedido,
     cambiarEmergenciaVista, updateUbicacionInternacion,
     pedidos, pacientes, internaciones, padron,
     pedidosTerminados, terminadosHasMore, terminadosLoading, fetchNextPageTerminados,
@@ -461,8 +461,10 @@ export default function App() {
             <div className="flex gap-3">
               <button onClick={() => logout()} className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cerrar sesión</button>
               <button onClick={() => {
+                // NOTE: with real username/password auth (Task 15) there is no way to
+                // silently refresh the token here without asking for the password again,
+                // so this just dismisses the warning; the hard logout timer still applies.
                 setSessionWarning(false);
-                login(currentUser.id); // Refresh token
               }} className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Mantener activa</button>
             </div>
           </div>

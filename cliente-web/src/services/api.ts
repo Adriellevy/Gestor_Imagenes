@@ -16,8 +16,8 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
-export const login = async (userId: string): Promise<{ access_token: string, user: Usuario }> => {
-  const { data } = await api.post('/auth/login', { userId });
+export const login = async (username: string, password: string): Promise<{ access_token: string }> => {
+  const { data } = await api.post('/auth/login', { username, password });
   return data;
 };
 
