@@ -1,24 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { UsuariosService } from '../usuarios/usuarios.service';
+import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private usuariosService: UsuariosService,
-    private jwtService: JwtService
-  ) {}
+  constructor(private readonly httpService: HttpService, private readonly config: ConfigService) {}
 
-  async login(userId: string) {
-    const usuarios = await this.usuariosService.findAll();
-    const user = usuarios.find(u => u.id === userId);
-    if (!user) {
-      throw new UnauthorizedException('Usuario no encontrado');
-    }
-    const payload = { sub: user.id, rol: user.rol };
-    return {
-      access_token: await this.jwtService.signAsync(payload),
-      user: user
-    };
+  async login(username: string, password: string) {
+    const baseUrl = this.config.get<string>('GESTOR_GENERAL_URL', 'http://localhost:3020/api/v1');
+    const response = await firstValueFrom(
+      this.httpService.post(`${baseUrl}/auth/login`, { username, password }),
+    );
+    return response.data.data;
   }
 }
