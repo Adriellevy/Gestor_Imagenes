@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { AxiosError } from 'axios';
 
 @Injectable()
 export class AuthService {
@@ -9,9 +10,22 @@ export class AuthService {
 
   async login(username: string, password: string) {
     const baseUrl = this.config.get<string>('GESTOR_GENERAL_URL', 'http://localhost:3020/api/v1');
-    const response = await firstValueFrom(
-      this.httpService.post(`${baseUrl}/auth/login`, { username, password }),
-    );
-    return response.data.data;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${baseUrl}/auth/login`, { username, password }),
+      );
+      return response.data.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      if (axiosError.response) {
+        const status = axiosError.response.status;
+        const message = axiosError.response.data?.message ?? 'Usuario o contraseña incorrectos';
+        throw new HttpException(message, status);
+      }
+      throw new HttpException(
+        'No se pudo contactar el servicio de autenticación',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
   }
 }
