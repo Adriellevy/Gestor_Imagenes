@@ -19,8 +19,11 @@ export function LoginScreen() {
     setError('');
     try {
       await login(username, password);
-    } catch {
-      setError('Usuario o contraseña incorrectos');
+    } catch (err: any) {
+      // El backend reenvía el status/mensaje real de gestor-general (401 con
+      // credenciales inválidas, 502 si gestor-general no responde, etc.) —
+      // mostrarlo en vez de asumir siempre "contraseña incorrecta".
+      setError(err?.response?.data?.message ?? 'Usuario o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
