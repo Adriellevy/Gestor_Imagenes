@@ -456,7 +456,7 @@ export default function App() {
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" style={{ animation: "pop .2s ease-out" }}>
             <h3 className="mb-2 text-lg font-bold text-slate-900">Aviso de sesión</h3>
             <p className="mb-6 text-sm text-slate-600">
-              Tu sesión está a punto de expirar por inactividad. ¿Deseas mantenerla activa?
+              Tu sesión está a punto de expirar por inactividad. Vas a tener que volver a iniciar sesión pronto.
             </p>
             <div className="flex gap-3">
               <button onClick={() => logout()} className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Cerrar sesión</button>
@@ -464,8 +464,9 @@ export default function App() {
                 // NOTE: with real username/password auth (Task 15) there is no way to
                 // silently refresh the token here without asking for the password again,
                 // so this just dismisses the warning; the hard logout timer still applies.
+                // Label reflects that honestly — it does not "keep the session alive".
                 setSessionWarning(false);
-              }} className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Mantener activa</button>
+              }} className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Entendido</button>
             </div>
           </div>
         </div>
