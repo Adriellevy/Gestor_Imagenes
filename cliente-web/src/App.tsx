@@ -425,7 +425,7 @@ export default function App() {
         {role === "dashboard" ? (
           <DashboardView studies={studies} />
         ) : role === "users" ? (
-          <UsersPanel usuarios={usuarios} currentUser={currentUser} onReset={resetData} />
+          <UsersPanel usuarios={usuarios} currentUser={currentUser} onReset={hasPermission("gestionar_usuarios") ? resetData : undefined} />
         ) : role === "imaging" ? (
           groups.length === 0 ? <EmptyState text="No hay estudios que coincidan con el filtro." /> : (
             <div className="space-y-6">

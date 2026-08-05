@@ -9,7 +9,9 @@ const FONT_MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace";
 interface UsersPanelProps {
   usuarios: Usuario[];
   currentUser: Usuario;
-  onReset: () => void;
+  // Ausente cuando el usuario no tiene permiso "gestionar_usuarios" — la
+  // sección de reinicio de datos ni se renderiza en ese caso (ver App.tsx).
+  onReset?: () => void;
 }
 
 export function UsersPanel({ usuarios, currentUser, onReset }: UsersPanelProps) {
@@ -93,25 +95,27 @@ export function UsersPanel({ usuarios, currentUser, onReset }: UsersPanelProps) 
         </div>
       </section>
 
-      <section>
-        <div className="mb-2.5 flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
-            <RotateCcw size={15} />
-          </span>
-          <h3 className="text-sm font-semibold text-slate-700">Datos</h3>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
-          <p className="text-sm text-slate-500">Los datos persisten entre recargas (si la API lo soporta). Esta acción limpia localStorage si usaba mocks localmente.</p>
-          {!confirmar ? (
-            <button onClick={() => setConfirmar(true)} className="ml-auto shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Reiniciar datos</button>
-          ) : (
-            <span className="ml-auto flex shrink-0 items-center gap-2">
-              <button onClick={() => { onReset(); setConfirmar(false); }} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700">Confirmar</button>
-              <button onClick={() => setConfirmar(false)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Cancelar</button>
+      {onReset && (
+        <section>
+          <div className="mb-2.5 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
+              <RotateCcw size={15} />
             </span>
-          )}
-        </div>
-      </section>
+            <h3 className="text-sm font-semibold text-slate-700">Datos</h3>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-sm text-slate-500">Los datos persisten entre recargas (si la API lo soporta). Esta acción limpia localStorage si usaba mocks localmente.</p>
+            {!confirmar ? (
+              <button onClick={() => setConfirmar(true)} className="ml-auto shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Reiniciar datos</button>
+            ) : (
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                <button onClick={() => { onReset(); setConfirmar(false); }} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700">Confirmar</button>
+                <button onClick={() => setConfirmar(false)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50">Cancelar</button>
+              </span>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
